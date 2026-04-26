@@ -1,162 +1,216 @@
-# Reflection — Iteration 1
+# Reflection — Iteration 1 (post-rebuild)
 
-A retrospective on the AutoResearch framework build. Written after the
-first 5 dry-run experiments completed. Honest, not promotional.
+A retrospective on the AutoResearch framework after the *self-driving*
+rebuild. Written following 1 baseline run + 5 fresh auto iterations.
+Honest, not promotional. Supersedes the previous version of this file,
+which was written when the framework still required hand-edited candidate
+lists and ran in a dedicated `dry_runs/` subfolder.
+
+---
+
+## What changed since the last reflection
+
+1. **Self-driving candidate generation.** `python run_autoresearch.py` no
+   longer requires editing any code between iterations. It reads the current
+   champion from `experiments/auto_runs/champion.json` and the run history
+   from `master_log.csv`, then builds its candidate list automatically:
+   baselines + the champion's exact config + N challengers, drawn first
+   from one-knob mutations of the champion's feature config and then from
+   random untried points in the search space.
+2. **Search space expanded.** `MODEL_SPECS` grew from 12 entries to 38,
+   with substantially more hyperparameter levers exposed:
+   - Random Forest now varies `n_estimators`, `max_depth`,
+     `min_samples_leaf`, `min_samples_split`, `max_features`, and
+     `bootstrap`.
+   - Gradient Boosting now varies `subsample`, `min_samples_leaf`,
+     `max_features`, `loss` (incl. Huber for spike robustness), and early
+     stopping (`n_iter_no_change` + `validation_fraction`).
+   - **Multi-layer perceptron** added (`mlp`, `MLPRegressor` wrapped in
+     a `StandardScaler` pipeline) with `hidden_layer_sizes`, `activation`,
+     `solver`, `alpha`, `learning_rate_init`, `max_iter`, and
+     `early_stopping` as varied knobs.
+   With 13 feature presets, the discrete combination space is now 494
+   candidates; sklearn-dependent specs are auto-skipped on hosts where
+   sklearn isn't importable.
+3. **Folder layout cleaned up.** `experiments/results/` and the
+   `dry_runs/` subfolder are gone. Baseline runs land in
+   `experiments/baseline_runs/`; auto-loop runs and the cross-run
+   `master_log.csv` + `champion.json` live in `experiments/auto_runs/`.
+   This separation avoids confusion between two different artifact kinds.
 
 ---
 
 ## What the agent did well
 
-**Locked design decisions early, in code.** Before writing any modeling
-code, the validation metric (MSE), test split (final 365 days), and
-baseline (seasonal naive) were committed via constants in
-`src/metrics.py`, `src/split.py`, and `src/autoresearch.py`. This means
-no number on any future leaderboard can quietly drift unless a constant
-is intentionally edited. The `program.md` spec mirrors these decisions
-in human-readable form. Drift is the most expensive bug in research code,
-and this design makes it loud.
+**Self-driving design pays off immediately.** Across 5 iterations and 34
+master-log rows, the loop progressed the champion twice, tested 22 unique
+candidate configurations, and never required a code edit. The
+one-knob-mutation strategy produced clean ablation pairs unprompted: the
+deeper-lags variant beating the lag-1-7 variant emerged in iteration 4
+because the auto-generator decided to mutate the lag list of the then-
+champion, exactly the right thing to try.
 
-**Made the test set untouchable by construction.** `Splits.test` exists
-as a dataclass field but is never passed into `run_loop`. To use it,
-someone has to write new code, not just toggle a flag. This is a much
-stronger guard against test-set leakage than relying on discipline.
+**History-aware deduplication works as advertised.** Iterations 2–5 each
+selected challengers that none of the previous iterations had tried, so
+the master log accumulates *new* information per run rather than
+re-confirming the same points. The history-length seed worked well as a
+default — every run drew from a different slice of the space without the
+user having to think about random_state.
 
-**Treated the baseline question seriously.** When asked whether
-`period=7` ignored yearly seasonality, the answer wasn't a hand-wavy
-"trust me." It ran the comparison: `period=364` (yearly-aligned) cuts
-MSE by 57% vs. `period=7`. That number is the strong baseline now, and
-it's the right one to beat. Notably, `period=365` was *worse* than
-`period=364` because 365 isn't a multiple of 7 — a real subtlety that
-showed up empirically.
+**Locked decisions held under change.** The validation metric (MSE), the
+test-set lock (final 365 days never passed into `run_loop`), the
+`seasonal_naive_364` "number to beat", and the champion-promotion rule
+all survived the rebuild. The new champion's MSE (26.09M) is reported
+against the same baseline (60.41M) and the same val window as iteration
+1's first dry runs, so the leaderboard remains apples-to-apples.
 
-**Cross-run state landed cleanly.** `master_log.csv` and `champion.json`
-plus `analyze_runs.py` give a single source of truth across runs without
-a database. The champion is auto-promoted on improvement, which means
-each new iteration is anchored against the right bar without any manual
-bookkeeping.
+**Failure under sklearn unavailability is graceful.** The sandbox
+environment can't `pip install scikit-learn` (proxy blocked), and the
+loop handled this without an error: `_sklearn_available()` returns
+False, the 35 sklearn-dependent specs are silently filtered out of the
+search space, and only the three `numpy_ols` variants × 13 feature
+presets remain. The user's local machine, which can install sklearn,
+will pick up the full space without any code change.
 
-**Surfaced silent failure modes proactively.** `validate_merged()` checks
-for date gaps, NaNs in target, and merge-overlap shortfalls — exactly
-the issues that distort MSE without crashing anything. The README's
-"Failure modes" table separates silent (dangerous) from loud (visible)
-issues, which is the categorization that actually helps under time
-pressure.
-
-**Caught and fixed real bugs during the build.** When the user pointed
-out that `run_baseline.py` produced no artifact, the script was rewritten
-to write JSON + CSV alongside the AutoResearch outputs. When the sklearn
-imports were discovered to fire even for baseline-only flows, they were
-moved inside `default_candidates()` and a separate `baseline_candidates()`
-was extracted. Both fixes were small, but they would have cost real time
-to discover later.
+**MLP integration didn't punch holes in the abstraction.** The pipeline
+wrapper (`StandardScaler` + `MLPRegressor`) is the right call because
+MLP convergence is scale-sensitive. Wiring it through `_make_factory`
+without changing `score_candidate` or `run_loop` validates that the
+candidate abstraction is the right shape.
 
 ---
 
 ## What the agent did badly
 
-**Initial `run_baseline.py` produced no artifact.** Documenting only via
-stdout meant a re-run looked indistinguishable from a no-op. The user had
-to ask before this got fixed. A reproducible analysis should always leave
-a trail, and this should have been the default from line one.
+**The most-helpful feature in this iteration was an absence.** The
+champion is `cal_lag1-7-14_roll7-28` — calendar + demand history only,
+*no temperature, no apparent_temp, no RRP*. That's a meaningful finding,
+but it surfaced because the search space included "lag features without
+weather" presets and sklearn wasn't available to fairly test the weather
+features. A more reflective generator would have flagged this as
+"dropping all weather features apparently helps; this could be real, or
+it could be unregularized OLS struggling with collinear weather columns."
+The framework currently produces no such interpretation — it just sorts
+by MSE.
 
-**Hard-coded sklearn imports at module top.** The original
-`autoresearch.py` did `from sklearn.linear_model import Ridge` at import
-time, which broke `run_baseline.py` whenever sklearn wasn't installed —
-even though the baselines themselves don't need sklearn. This was a
-coupling bug that should have been caught the first time the dependency
-graph was sketched.
+**Sandbox restriction was not designed around explicitly.** The 38-spec
+table was added with the user's full machine in mind, but the sandbox
+runs only ever exercise 3 of the 38. That means everything in this
+reflection about RF/GBM/MLP is *speculative until the user runs locally*.
+The framework should at least print a one-line warning when sklearn is
+missing ("only numpy_ols specs available"), so the gap is visible at the
+top of every run rather than implicit.
 
-**Default baseline initially understated the bar.** Iteration 1 shipped
-with `seasonal_naive_7` as the only baseline. That number (MSE 141M) is
-*easy* to beat — anything decent will. The stronger `seasonal_naive_364`
-(MSE 60M) was added only after the user asked the right question. The
-agent should have proposed both up front; the cost is two extra fits per
-run, which is trivial.
+**Champion mapping for legacy names is fragile.** When the very first
+champion was set under the old name `ols_full` (before the auto-naming
+convention existed), the auto-generator fell back to feature-signature
+matching and re-registered the closest auto-named candidate. This worked
+but is invisible to the user — there's no log line saying "champion
+`ols_full` was re-registered as `numpy_ols__full__alpha0.0` for this
+run". A small print statement in `auto_candidates()` would close that
+loop.
 
-**Validation window choice was arbitrary.** "180 days before test" was
-asserted, not derived. A reasoned choice would have looked at the noise
-floor (variance of the same model fit on different val windows) and
-picked a window that was long enough for the signal to dominate but not
-so long that train shrank meaningfully. Currently the only justification
-is "half a seasonal cycle" — defensible but not load-bearing.
+**Repeated-run noise is still 0 std.** In `analyze_runs.py --ablation`,
+every candidate that was run more than once shows `std = 0.0`. That's
+because the framework is fully deterministic given fixed splits + fixed
+model seeds, which is reproducibility-good but uninformative-for-noise.
+The "report mean ± std for the leaderboard" item from the previous
+reflection is therefore *technically* solved (stds are reported) but
+operationally meaningless. To get a real noise floor we'd need to vary
+something stochastic — bootstrap resamples of the train set, or wiggle
+the val cut-point by ±a few days — neither of which is in scope today.
 
-**Observed RRP as a feature is a semantic leak.** `gbm_full` and
-`ols_full` use the *true* RRP at each forecast date as a feature. At
-deployment you wouldn't have today's RRP — you'd have to predict it (the
-charter's stage-1 model). The MSE reported for these candidates is
-therefore optimistic. This is now flagged in the failure-modes table and
-in §10 of `program.md`, but the candidate should have been called
-something like `ols_full_with_observed_rrp` from the start to make the
-caveat unmissable.
-
-**Master log has no concurrency control.** `master_log.csv` is appended
-with plain `df.to_csv(mode='a')`. Two `run_autoresearch.py` invocations
-in parallel against the same `--results-dir` would interleave rows or
-truncate each other. Unlikely in practice for a small research project,
-but worth a comment in code; for now it's only a README footnote.
-
-**Prose in the README grew incrementally.** Each user question added a
-section, but the document wasn't refactored as it grew. A reader landing
-on it cold has to scroll a lot to find the locked decisions. The new
-`program.md` partially addresses this by giving the spec a separate home,
-but the README itself could still be tighter.
+**`master_log.csv` concurrency comment still hasn't shipped.** The
+README footnote about parallel-run interleaving was carried forward from
+the last reflection; nothing was actually done about it. Low priority
+for a small research project, but it's been on the punch list two
+iterations now and should either get a `filelock` wrapper or be
+explicitly closed as won't-fix.
 
 ---
 
-## Findings from the 5 dry-run experiments
+## Findings from the 5 fresh dry runs
 
-The dry runs used numpy-only OLS variants (so the framework could run
-without sklearn) plus the two seasonal naives. Final state of the master
-log under `experiments/results/dry_runs/`:
+The runs landed in `experiments/auto_runs/` with run_ids
+`eba2e1ab`, `e3be718c`, `a58b7a8b`, `21aa1fe5`, `161f5481`. Sklearn was
+unavailable, so all challengers came from the `numpy_ols` slice of the
+search space. Final master-log leaderboard, best-per-candidate:
 
-| candidate | best MSE | n_features | beats seasonal_naive_364? |
-|---|---|---|---|
-| `ols_full` | **39,872,301** | 25 | yes (−34%) |
-| `seasonal_naive_364` | 60,410,779 | 0 | (baseline) |
-| `ols_calendar` | 69,698,243 | 8 | no |
-| `ols_calendar_temp_apptemp` | 92,072,320 | 21 | no |
-| `ols_calendar_temp` | 98,265,550 | 18 | no |
-| `seasonal_naive_7` | 141,138,184 | 0 | no |
+| candidate | best MSE | RMSE | n_features | beats `seasonal_naive_364`? |
+|---|---:|---:|---:|---|
+| `numpy_ols__cal_lag1-7-14_roll7-28__alpha10.0` ★ | **26,090,700** | 5,108 | 13 | yes (−57%) |
+| `numpy_ols__cal_lag1-7_roll7__alpha0.0` | 26,540,303 | 5,152 | 11 | yes (−56%) |
+| `numpy_ols__cal_lag1-7_roll7__alpha1.0` | 26,560,530 | 5,154 | 11 | yes (−56%) |
+| `numpy_ols__cal_lag1-7__alpha0.0` | 29,648,932 | 5,445 | 10 | yes (−51%) |
+| `numpy_ols__cal_lag1-7__alpha1.0` | 29,666,515 | 5,447 | 10 | yes (−51%) |
+| `numpy_ols__cal_lag1-7__alpha10.0` | 29,704,139 | 5,450 | 10 | yes (−51%) |
+| `numpy_ols__full_lag1-7-14_roll7-28__alpha1.0` | 38,300,127 | 6,189 | 27 | yes (−37%) |
+| `numpy_ols__full_lag1-7-14_roll7-28__alpha0.0` | 38,372,673 | 6,195 | 27 | yes (−37%) |
+| `numpy_ols__full__alpha10.0` | 39,834,272 | 6,311 | 25 | yes (−34%) |
+| `numpy_ols__full__alpha0.0` | 40,051,428 | 6,329 | 25 | yes (−34%) |
+| `numpy_ols__cal_temp_lag1-7_roll7__alpha10.0` | 41,692,248 | 6,457 | 21 | yes (−31%) |
+| `numpy_ols__cal_temp_lag1-7_roll7__alpha1.0` | 41,696,350 | 6,457 | 21 | yes (−31%) |
+| `numpy_ols__cal_temp_lag1-7_roll7__alpha0.0` | 41,854,415 | 6,469 | 21 | yes (−31%) |
+| `numpy_ols__cal_temp_lag1-7__alpha10.0` | 44,886,368 | 6,700 | 20 | yes (−26%) |
+| `numpy_ols__cal_temp_lag1-7__alpha1.0` | 44,936,062 | 6,703 | 20 | yes (−26%) |
+| `numpy_ols__cal_temp_lag1-7__alpha0.0` | 45,173,214 | 6,721 | 20 | yes (−25%) |
+| `seasonal_naive_364` | 60,410,779 | 7,772 | 0 | (baseline) |
+| `numpy_ols__cal__alpha10.0` | 69,695,376 | 8,348 | 8 | no |
+| `numpy_ols__cal__alpha1.0` | 69,698,243 | 8,349 | 8 | no |
+| `numpy_ols__cal__alpha0.0` | 69,703,313 | 8,349 | 8 | no |
+| `numpy_ols__cal_temp_apptemp__alpha1.0` | 92,072,320 | 9,595 | 21 | no |
+| `seasonal_naive_7` | 141,138,184 | 11,880 | 0 | no |
 
-Three things this surfaced that were **not** obvious in advance:
+Five things this surfaced that weren't visible before:
 
-1. **Calendar features alone (OLS) lose to yearly-aligned seasonal naive.**
-   `ols_calendar` (MSE 69.7M) is *worse* than `seasonal_naive_364`
-   (60.4M). Eight calendar columns plus an intercept can't reproduce what
-   recall of the same calendar position one year ago does for free. So
-   the "real" signal in the dataset is more subtle than "season + day of
-   week."
+1. **Calendar + demand history alone wins.** The champion drops *all*
+   weather and price features. `cal_lag1-7-14_roll7-28` (n_features=13)
+   beats `full_lag1-7-14_roll7-28` (n_features=27) by 32%. Adding the 14
+   weather/RRP columns to the same lag stack actively hurt MSE under
+   unregularized OLS — exactly the multicollinearity story the previous
+   reflection diagnosed in iteration 1, now reproduced cleanly with the
+   new search space.
 
-2. **Adding standard temperature features made OLS worse, not better.**
-   `ols_calendar_temp` (98.3M) regressed sharply from `ols_calendar`
-   (69.7M). The 10 temperature columns from the merged panel are highly
-   correlated — they're essentially the same signal expressed three or
-   four ways — and unregularized OLS struggles with that. This is exactly
-   why the project charter prioritized tree-based models. A real Ridge
-   with cross-validated alpha (instead of fixed alpha=1) would likely
-   recover most of this.
+2. **Deeper lags help, but with diminishing returns.** Going from
+   `lag1-7` to `lag1-7-14` (and `roll7` → `roll7-28`) cut MSE by 1.7%
+   (26.54M → 26.09M). That's the improvement that promoted the new
+   champion. It's a small absolute lift; the noise floor question becomes
+   important here, and right now we don't have one.
 
-3. **Apparent temperature partially helped, but didn't rescue the model.**
-   `ols_calendar_temp_apptemp` (92.1M) improved over `ols_calendar_temp`
-   (98.3M) by ~6%, supporting H1 *weakly*. But it still couldn't catch
-   even calendar-only OLS, let alone the strong baseline. The
-   apparent-temp finding needs to be re-tested with non-linear models
-   before it can be reported with confidence.
+3. **Calendar features alone are still bad.** `cal__alpha*` (no lags, no
+   weather) hit 69.7M — *worse* than `seasonal_naive_364` at 60.4M.
+   Eight calendar features can't recover what trivial yearly recall
+   gives you for free. The lag features are doing the real work; calendar
+   contributes only when paired with lags.
 
-The big win came from the full feature stack: adding lags `[1, 7]`,
-`demand_roll7`, and observed RRP took the OLS from 92M to 39.9M — the
-first model to beat the strong baseline, and the new champion.
-*Caveat:* the RRP contribution there is inflated for the reason in the
-"badly" section above. Iteration 2 should re-run `ols_full` without
-RRP to isolate the lag contribution from the (leaky) RRP contribution.
+4. **Apparent-temperature ablation (H1) still can't be fairly tested
+   here.** `cal_temp_apptemp__alpha1.0` (no lags) ran at 92M — far
+   worse than no weather at all. This isn't an honest H1 test: it's
+   unregularized OLS being defeated by 13 highly correlated weather
+   columns. H1 needs (a) cross-validated Ridge or trees, and (b) the
+   same lag stack on both sides of the ablation. Both remain blocked
+   on sklearn availability.
+
+5. **Ridge alpha barely moves OLS results when the feature set is
+   well-conditioned.** On the champion's feature stack, alpha ∈ {0, 1, 10}
+   spans 26.09M ↔ 26.65M — about a 2% spread. The bigger lever in this
+   regime is the feature set, not the regularization strength. Once
+   weather features are in the mix, alpha matters more (alpha=10 is
+   slightly better than alpha=0 on the `cal_temp` stack), consistent
+   with regularization helping under multicollinearity.
+
+The headline number: validation MSE dropped from 39.87M (the previous
+champion under the old framework) to 26.09M (new champion), a 35%
+improvement, by *removing* features rather than adding them.
 
 ---
 
-## Failure modes encountered during this build
+## Failure modes encountered (running tally)
 
-These are not hypothetical — they're the things that actually went wrong
-or that the framework caught while it was being assembled. Cataloged
-roughly in the order they appeared.
+These are not hypothetical — they're the things that actually went
+wrong, or that the framework caught while it was being assembled and
+exercised. Items 1–11 carry over from the last reflection; 12–14 are
+new in this iteration.
 
 | # | Failure | How it surfaced | Resolution |
 |---|---|---|---|
@@ -165,40 +219,47 @@ roughly in the order they appeared.
 | 3 | sklearn imports at module top broke baseline-only flow | `ModuleNotFoundError: No module named 'sklearn'` while running `run_baseline.py` | Lazy-imported sklearn inside `default_candidates()`; split out `baseline_candidates()` |
 | 4 | Open-Meteo CSV had a 3-line metadata preamble | First `pd.read_csv` returned junk columns | `_find_timeseries_header` scans for `time,` and skips above it |
 | 5 | Initial baseline was too easy to beat (period=7 only) | User asked the right ablation question; period=364 cut MSE by 57% | Added `seasonal_naive_364`; champion comparison now uses the *strongest* baseline |
-| 6 | Inability to delete files in the sandbox | Could not reset `experiments/results/` for a clean rerun | Pointed dry runs at `experiments/results/dry_runs/` so traces stay self-contained |
-| 7 | Adding standard temp features made OLS *worse* (E3) | MSE jumped from 69.7M to 98.3M | Diagnosed as multicollinearity in unregularized OLS; flagged for iteration 2 (cross-validated Ridge or trees) |
+| 6 | Inability to delete files in the sandbox | Could not reset `experiments/results/` for a clean rerun | Resolved this iteration via `mcp__cowork__allow_cowork_file_delete`; legacy folders wiped and replaced with `auto_runs/` + `baseline_runs/` |
+| 7 | Adding standard temp features made OLS *worse* | MSE jumped from 26.5M (no weather) to 41.9M (with weather) on the same lag stack | Diagnosed as multicollinearity in unregularized OLS; flagged for iteration 2 (cross-validated Ridge or trees); reproduced cleanly in the new run set |
 | 8 | Cross-run leaderboard had no good UI | "Where do I look?" question from user | Added `master_log.csv`, `champion.json`, and `analyze_runs.py` |
-| 9 | Observed RRP used as a feature (semantic leak) | Spotted while writing the spec, not at runtime | Documented in failure-modes table; iteration 2 will swap in predicted RRP |
-| 10 | Lag windows could in principle exceed `train` length | Considered while writing `features.py` | Long lags would cause `dropna()` to silently shrink the train set; mitigated by feature config defaults (`lags=[1,7]`) |
+| 9 | Observed RRP used as a feature (semantic leak) | Spotted while writing the spec, not at runtime | Documented in failure-modes table; iteration 2 will swap in predicted RRP. Note: the new champion doesn't use RRP at all, so the *current* result is not affected by this leak |
+| 10 | Lag windows could in principle exceed `train` length | Considered while writing `features.py` | Long lags would cause `dropna()` to silently shrink the train set; mitigated by feature config defaults |
 | 11 | `period=365` introduces day-of-week shift | Caught while comparing `period=7` to `period=365` for the user's question | Documented; baseline uses `period=364` instead |
+| 12 | sklearn-only specs invisibly filter out in sandbox | 35 of 38 model specs silently dropped; user has to read code to know | Functionality is correct; cosmetic gap — should print one warning line at run start |
+| 13 | Champion mapping by feature signature for legacy names | First champion `ols_full` (pre-auto-naming) was rebound to `numpy_ols__full__alpha0.0` without a log line | Worked correctly but should print "remapped legacy champion <X> to <Y>" so the substitution is auditable |
+| 14 | Variance estimates from repeated runs are uninformative | `analyze_runs.py --ablation` shows `std = 0.0` for every multi-run candidate because everything is deterministic | Real noise estimation needs a stochastic perturbation (bootstrap, val-cut wiggle); deferred to iteration 2 |
 
-The pattern: about half of these were caught by the framework's own
-diagnostics or by trying to run code that I had written. The other half
-came from the user asking the right question. That second category is
-the more important one — without the user's "but what about period=365?"
-the strong baseline would still be missing, and the loop's improvement
-claims would be inflated.
+The pattern is the same as before: roughly half the items came from the
+framework's own diagnostics or from running the code, and half came from
+the user asking pointed questions. The half from user questions is still
+the more important half — without those, the framework runs cleanly but
+optimizes the wrong thing.
 
 ---
 
-## What would I do differently in iteration 2
+## What I would do differently in iteration 2
 
-1. **Replace observed RRP with predicted RRP.** Two-stage pipeline as
-   the charter calls for. This is the single biggest correction the
-   results need.
-2. **Add cross-validated Ridge and a tree ensemble for the apparent-temp
-   ablation.** OLS with `alpha=1` was the wrong tool for evaluating H1.
-   The charter explicitly says "prioritize tree-based models for small
-   data."
-3. **Run each candidate ≥ 3 times and report mean ± std in the
-   leaderboard.** Currently `analyze_runs.py --ablation` shows std but
-   most candidates have only 1 sample. Repeated runs are cheap; the
-   noise floor on MSE matters when the H1 effect size is in the
-   single-digit-percent range.
-4. **Tighten the README.** Move the locked-decisions table to the top,
-   move detailed prose into `program.md` (mostly done), and shorten
-   what's left.
-5. **Add a tests/ directory.** At least a smoke test for
-   `make_splits()` and `validate_merged()`. The framework is small
-   enough that the tests would be small too, and they'd catch the
-   coupling bug from item 3 of the failure-modes table.
+1. **Get sklearn into the run environment.** Almost every meaningful
+   open question (H1 with apparent_temp, H3 with non-linear models, RF
+   vs MLP, regularised Ridge vs OLS on weather features) is gated on
+   this. The 38-spec table is in place; it just isn't being exercised.
+2. **Replace observed RRP with predicted RRP** for any candidate that
+   uses RRP. The current champion sidesteps this issue by dropping RRP
+   entirely, but H2 (price-signal value) can't be answered until the
+   two-stage pipeline exists.
+3. **Add a noise floor.** Either bootstrap-resample the train set
+   inside `score_candidate` (with a `n_bootstrap` knob), or evaluate the
+   candidate at three slightly different val cut-points and report the
+   spread. Without this, the 1.7% champion improvement in iteration 1
+   is reportable but not defensible.
+4. **Print a one-line environment summary at run start.** Something
+   like `[autoresearch] sklearn=available specs=38, sklearn=missing
+   specs=3 (only numpy_ols)` so the gap is visible upfront.
+5. **Add a "champion remap" log line** when `auto_candidates()`
+   substitutes a feature-signature match for a legacy name.
+6. **Smoke tests under `tests/`.** At minimum: `make_splits()`
+   reproduces row counts, `validate_merged()` flags a synthetic gap,
+   `auto_candidates()` returns the right composition (baselines +
+   champion + N challengers, all unique names), and `_make_factory()`
+   dispatches every entry in `MODEL_SPECS` without raising. The
+   framework is small enough that the tests will be too.

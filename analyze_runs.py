@@ -28,7 +28,7 @@ from src.metrics import PRIMARY_METRIC_NAME
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Cross-run analysis.")
-    parser.add_argument("--results-dir", default="experiments/results")
+    parser.add_argument("--results-dir", default="experiments/auto_runs")
     parser.add_argument("--top", type=int, default=10,
                         help="How many leaderboard rows to print.")
     parser.add_argument("--ablation", action="store_true",

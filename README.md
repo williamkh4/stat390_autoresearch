@@ -41,6 +41,7 @@ AutoResearch Project/
   requirements.txt               # pinned minimum versions
   run_baseline.py                # compute baseline MSE on the validation set
   run_autoresearch.py            # one full pass of the AutoResearch loop
+  analyze_runs.py                # cross-run leaderboard / champion / ablation tool
   src/
     __init__.py
     data_loader.py               # load + merge the two CSVs
@@ -48,9 +49,11 @@ AutoResearch Project/
     metrics.py                   # MSE/RMSE/MAE, with MSE marked PRIMARY
     features.py                  # FeatureConfig + build_features
     baselines.py                 # SeasonalNaive
-    autoresearch.py              # Candidate registry + run_loop()
+    numpy_models.py              # NumpyOLS (sklearn-free linear baseline)
+    autoresearch.py              # Candidate registry, MODEL_SPECS, FEATURE_PRESETS, run_loop()
   experiments/
-    results/                     # run_<id>.json + leaderboard CSVs land here
+    baseline_runs/               # baseline_<timestamp>.json + .csv from run_baseline.py
+    auto_runs/                   # run_<id>.json, leaderboards, master_log.csv, champion.json
 ```
 
 ---
@@ -94,32 +97,64 @@ python run_baseline.py
 Artifacts (relative to the current working directory; run from the repo root):
 
 ```
-experiments/results/baseline_<timestamp>.json    # full report
-experiments/results/baseline_<timestamp>.csv     # leaderboard CSV
+experiments/baseline_runs/baseline_<timestamp>.json    # full report
+experiments/baseline_runs/baseline_<timestamp>.csv     # leaderboard CSV
 ```
 
 If you re-run the script and don't see new files, check (1) your current
-working directory when you invoked `python`, and (2) `experiments/results/`
+working directory when you invoked `python`, and (2) `experiments/baseline_runs/`
 under that directory. The script prints the exact path of every file it
 writes on its last two lines.
 
 ---
 
-## 2. Run the AutoResearch loop once
+## 2. Run the AutoResearch loop once (self-driving)
 
-One iteration of the loop fits every candidate in
-`src/autoresearch.py::default_candidates()` on the train split, scores each
-on validation, and writes a leaderboard plus a full JSON run report.
+`python run_autoresearch.py` is **self-driving** -- you do not edit any code
+between iterations. Each invocation:
+
+1. Reads the current champion from `experiments/auto_runs/champion.json`
+   (None on the first run).
+2. Reads `experiments/auto_runs/master_log.csv` for the set of candidate names
+   already tried.
+3. Calls `auto_candidates()` (in `src/autoresearch.py`) which assembles:
+   - both seasonal-naive **baselines** (always);
+   - the **champion's exact config** (always, so noise on the current
+     leader is visible in the new run's leaderboard);
+   - **`--n-challengers`** new challengers (default 4), prioritising
+     **one-knob mutations of the champion's feature config** before
+     falling back to random untried points from the full search space.
+4. Fits + scores all of those, writes the artifacts, appends to
+   `master_log.csv`, and auto-promotes a new champion if any challenger
+   beat the previous one.
+
+Because step 2 dedupes against history, every run automatically does *new*
+work without you re-editing the candidate list.
 
 ```bash
-python run_autoresearch.py
+python run_autoresearch.py                       # default 4 challengers
+python run_autoresearch.py --n-challengers 6     # try more this run
+python run_autoresearch.py --seed 42             # reproducible draw
 ```
+
+The discrete search space lives in `src/autoresearch.py`:
+
+- `MODEL_SPECS` -- model_type x kwargs (numpy OLS variants, sklearn Ridge,
+  Random Forest, Gradient Boosting). sklearn-dependent specs are silently
+  skipped if sklearn isn't installed.
+- `FEATURE_PRESETS` -- short tag plus a `FeatureConfig` (calendar, temp,
+  apparent_temp, RRP, demand_lags, rolling_windows). Each preset combines
+  with each model spec to form one candidate; names are deterministic, e.g.
+  `ridge__cal_temp_apptemp_lag1-7_roll7__alpha1.0`.
+
+To enlarge the search space, append to `MODEL_SPECS` or `FEATURE_PRESETS`
+and re-run -- new candidates will surface organically as challengers.
 
 Artifacts (relative to the current working directory; run from the repo root):
 
 ```
-experiments/results/run_<id>.json              # full report: per-candidate metrics, env, splits
-experiments/results/run_<id>_leaderboard.csv   # sortable CSV leaderboard
+experiments/auto_runs/run_<id>.json              # full report: per-candidate metrics, env, splits
+experiments/auto_runs/run_<id>_leaderboard.csv   # sortable CSV leaderboard
 ```
 
 `<id>` is a fresh 8-character UUID per run, so consecutive runs never
@@ -144,7 +179,7 @@ next iteration.
 
 ## 3. Cross-run analysis & champion tracking
 
-The loop maintains two cross-run files in `experiments/results/`:
+The loop maintains two cross-run files in `experiments/auto_runs/`:
 
 - `master_log.csv` — every candidate from every run, appended one row each.
   This is your single source of truth for "what have I tried so far?".
@@ -163,25 +198,31 @@ python analyze_runs.py --ablation  # mean / std / best per candidate across runs
 
 ### Picking specs for the next iteration
 
-Use the cross-run leaderboard to spot **ablation pairs** — candidates that
-differ by exactly one knob:
+You don't have to. The auto-generator already prioritises **one-knob
+mutations of the current champion's feature config**, which is the natural
+ablation pair (same model class, one feature toggled). Examples of pairs the
+generator will surface automatically over consecutive runs:
 
 | comparison | what it isolates |
 |---|---|
-| `ridge_cal_temp` vs `ridge_cal_temp_apptemp` | apparent-temperature feature |
-| `ridge_cal_temp_apptemp` vs `rf_cal_temp_apptemp` | linearity vs trees |
-| `rf_cal_temp_apptemp` vs `gbm_full` | adding observed RRP + boosting |
+| `ridge__cal_temp__alpha1.0` vs `ridge__cal_temp_apptemp__alpha1.0` | apparent-temperature feature |
+| `ridge__cal_temp_apptemp_lag1-7_roll7__alpha1.0` vs same with `__alpha10.0` | regularisation strength |
+| `numpy_ols__full__alpha1.0` vs `ridge__full__alpha1.0` | numpy OLS vs sklearn Ridge |
 | any candidate vs `seasonal_naive_364` | "did I beat the trivial yearly recall?" |
 
-Decision rule: pick the *smallest* candidate whose MSE meaningfully beats
-the strongest baseline; ties broken by lower `runtime_sec`. Then set up
-your next iteration by adding new variants of that candidate (different
-hyperparameters, more lags, different features) to `default_candidates()`
-and re-running.
+Decision rule (used implicitly): the run promotes whatever has the lowest
+validation MSE to champion. Use `python analyze_runs.py --ablation` to
+inspect the per-candidate mean/std once you have multiple runs, and to
+manually compare smallest-meaningfully-better candidates if runtime cost
+matters.
 
-The champion is the natural reference for the next iteration: any new
-candidate you add should aim to beat it. Because it auto-updates, you
-never have to manually re-anchor.
+To **steer** the search rather than let it drift -- e.g. spend the next run
+exclusively on tree models -- temporarily delete `experiments/auto_runs/
+champion.json` (so the auto-generator has no "champion mutations" to draw
+from and falls back to random untried points), or pass a specific
+`--seed` and re-run until the desired candidates show up. Permanent
+steering should happen by editing `MODEL_SPECS`/`FEATURE_PRESETS` rather
+than by mutating individual run scripts.
 
 ---
 
@@ -247,20 +288,31 @@ Run `python -m src.data_loader` whenever data files change to re-check silent da
 
 ## Extending the loop
 
-To add a new candidate, append to `default_candidates()` in
-`src/autoresearch.py`:
+To add a new model class or hyperparameter point, append a tuple to
+`MODEL_SPECS` in `src/autoresearch.py`:
 
 ```python
-Candidate(
-    name="my_new_idea",
-    feature_config=FeatureConfig(
-        use_calendar=True, use_temp=True, use_apparent_temp=True,
-        use_rrp=False, demand_lags=[1, 7, 14], rolling_windows=[7, 28],
-    ),
-    model_factory=lambda: MyEstimator(...),
-),
+MODEL_SPECS.append(
+    ("ridge", (("alpha", 100.0), ("random_state", 0))),
+)
 ```
 
-Re-run `python run_autoresearch.py` and compare the leaderboard to the
-previous `run_<id>_leaderboard.csv`. Budget (fit count) and runtime give
-you a cost-vs-improvement picture as the search space grows.
+To add a new feature preset, append to `FEATURE_PRESETS`:
+
+```python
+FEATURE_PRESETS.append((
+    "cal_temp_apptemp_lag1-7-14-30_roll7-28",
+    FeatureConfig(
+        use_calendar=True, use_temp=True, use_apparent_temp=True,
+        use_rrp=False, demand_lags=[1, 7, 14, 30], rolling_windows=[7, 28],
+    ),
+))
+```
+
+If the new model type is something other than the built-in `numpy_ols`,
+`ridge`, `rf`, `gbm`, also add a branch in `_make_factory()`. Then re-run
+`python run_autoresearch.py`. New combos will surface as challengers in
+subsequent runs without any further manual selection.
+
+Budget (fit count) and runtime in each run report give a cost-vs-improvement
+picture as the search space grows.

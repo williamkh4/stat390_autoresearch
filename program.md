@@ -87,7 +87,7 @@ invalidates prior `master_log.csv` entries and resets the champion.
 | Train set | All earlier rows | derived |
 | Split style | Strict chronological slice | `src/split.py::make_splits` |
 | Baselines | `seasonal_naive_7` (weekly floor) and `seasonal_naive_364` (yearly floor; 52-week aligned) | `src/autoresearch.py::baseline_candidates` |
-| Reference for new candidates | Current champion in `experiments/results/champion.json`, auto-promoted on improvement | `src/autoresearch.py::run_loop` |
+| Reference for new candidates | Current champion in `experiments/auto_runs/champion.json`, auto-promoted on improvement | `src/autoresearch.py::run_loop` |
 
 ---
 
@@ -148,7 +148,7 @@ the panel are dropped.
 
 Per iteration:
 
-1. Inspect `experiments/results/champion.json` and `master_log.csv` (or run `python analyze_runs.py --ablation`).
+1. Inspect `experiments/auto_runs/champion.json` and `master_log.csv` (or run `python analyze_runs.py --ablation`).
 2. Form a hypothesis ("would adding 14-day lag help?", "is the gain from apparent-temp robust?").
 3. Add or modify a candidate in `default_candidates()` so the new candidate differs from the closest existing one by *one* knob.
 4. Run `python run_autoresearch.py`.
@@ -191,4 +191,4 @@ master-log table at the end of the dry runs.
 
 Bump `Spec version` in the header above whenever any locked decision in §5
 changes. All such changes invalidate prior runs and reset
-`experiments/results/champion.json` (delete the file before the next run).
+`experiments/auto_runs/champion.json` (delete the file before the next run).

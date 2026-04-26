@@ -6,8 +6,12 @@ baseline registered in the AutoResearch candidate list, and writes a small
 JSON + CSV report alongside the AutoResearch run artifacts.
 
 Output (relative to the current working directory):
-    experiments/results/baseline_<timestamp>.json
-    experiments/results/baseline_<timestamp>.csv
+    experiments/baseline_runs/baseline_<timestamp>.json
+    experiments/baseline_runs/baseline_<timestamp>.csv
+
+The default `--results-dir` is `experiments/baseline_runs/`. AutoResearch
+loop runs go to a separate folder (`experiments/auto_runs/`) so the two
+artifact streams stay cleanly separated.
 
 Usage:
     python run_baseline.py
@@ -34,7 +38,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run baseline analysis.")
     parser.add_argument(
         "--results-dir",
-        default="experiments/results",
+        default="experiments/baseline_runs",
         help="Where to write baseline_<timestamp>.json + .csv.",
     )
     args = parser.parse_args()
