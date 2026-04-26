@@ -75,9 +75,66 @@ def load_merged(data_dir: Path | str = DEFAULT_DATA_DIR) -> pd.DataFrame:
     return merged
 
 
+def validate_merged(df: pd.DataFrame) -> List[str]:
+    """Check the merged panel for silent data-quality issues.
+
+    Returns a list of human-readable warning strings (empty if everything
+    looks clean). Surfaces the failure modes documented in the README:
+      - missing or duplicate dates
+      - gaps in the date sequence
+      - NaNs in the target column (`demand`)
+      - low row count after merge (suggests poor source overlap)
+    """
+    warnings: List[str] = []
+    if df.empty:
+        return ["Merged panel is empty -- no overlap between sources."]
+
+    if not df["time"].is_unique:
+        warnings.append(
+            f"Duplicate dates in merged panel: "
+            f"{df['time'].duplicated().sum()} rows."
+        )
+
+    full_range = pd.date_range(df["time"].min(), df["time"].max(), freq="D")
+    missing = full_range.difference(df["time"])
+    if len(missing):
+        warnings.append(
+            f"{len(missing)} dates missing from the contiguous range "
+            f"({df['time'].min().date()} -> {df['time'].max().date()}). "
+            f"First gaps: {[str(d.date()) for d in missing[:5]]}"
+        )
+
+    if df["demand"].isna().any():
+        warnings.append(
+            f"`demand` has {int(df['demand'].isna().sum())} NaN(s); "
+            "these rows will be dropped during feature build."
+        )
+
+    if len(df) < 1000:
+        warnings.append(
+            f"Merged panel has only {len(df)} rows -- expected ~2,100. "
+            "Check that both source CSVs cover the same date range."
+        )
+
+    return warnings
+
+
+# Need to import List for the validator.
+from typing import List  # noqa: E402  (placed late to keep public API at top)
+
+
 if __name__ == "__main__":
     df = load_merged()
     print(f"Merged rows:    {len(df):,}")
     print(f"Date range:     {df['time'].min().date()}  ->  {df['time'].max().date()}")
     print(f"Columns:        {list(df.columns)}")
     print(df.head(3))
+
+    print()
+    print("Data quality warnings:")
+    warns = validate_merged(df)
+    if warns:
+        for w in warns:
+            print(f"  - {w}")
+    else:
+        print("  none -- panel looks clean.")

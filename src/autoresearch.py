@@ -232,8 +232,13 @@ class RunReport:
     results: List[CandidateResult] = field(default_factory=list)
     best_name: str | None = None
     best_metric: float | None = None
+    baseline_name: str | None = None
     baseline_metric: float | None = None
     improvement_vs_baseline: float | None = None
+    prev_champion_name: str | None = None
+    prev_champion_metric: float | None = None
+    new_champion: bool = False                      # did this run promote a new champion
+    improvement_vs_champion: float | None = None
     env: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -246,11 +251,67 @@ class RunReport:
             "splits_summary": self.splits_summary,
             "best_name": self.best_name,
             "best_metric": self.best_metric,
+            "baseline_name": self.baseline_name,
             "baseline_metric": self.baseline_metric,
             "improvement_vs_baseline": self.improvement_vs_baseline,
+            "prev_champion_name": self.prev_champion_name,
+            "prev_champion_metric": self.prev_champion_metric,
+            "new_champion": self.new_champion,
+            "improvement_vs_champion": self.improvement_vs_champion,
             "env": self.env,
             "results": [asdict(r) for r in self.results],
         }
+
+
+# ----------------------------------------------------------------------------
+# Cross-run persistence: master log + champion
+# ----------------------------------------------------------------------------
+
+MASTER_LOG_NAME = "master_log.csv"
+CHAMPION_NAME = "champion.json"
+
+
+def _load_champion(path: Path) -> Dict[str, Any] | None:
+    if not path.exists():
+        return None
+    with open(path) as f:
+        return json.load(f)
+
+
+def _save_champion(path: Path, champion: Dict[str, Any]) -> None:
+    with open(path, "w") as f:
+        json.dump(champion, f, indent=2, default=str)
+
+
+def _append_master_log(
+    path: Path,
+    run_id: str,
+    timestamp: str,
+    results: List[CandidateResult],
+) -> None:
+    """Append one row per candidate to the cross-run master log."""
+    rows = [
+        {
+            "run_id": run_id,
+            "timestamp_utc": timestamp,
+            "candidate_name": r.name,
+            "is_baseline": r.is_baseline,
+            PRIMARY_METRIC_NAME: r.metrics.get(PRIMARY_METRIC_NAME),
+            "rmse_demand": r.metrics.get("rmse_demand"),
+            "mae_demand": r.metrics.get("mae_demand"),
+            "runtime_sec": r.runtime_sec,
+            "n_features": r.n_features,
+            "n_train": r.n_train,
+            "n_val": r.n_val,
+            "error": r.error or "",
+        }
+        for r in results
+    ]
+    df = pd.DataFrame(rows)
+    if path.exists():
+        df.to_csv(path, mode="a", header=False, index=False)
+    else:
+        df.to_csv(path, index=False)
 
 
 def run_loop(
@@ -262,6 +323,16 @@ def run_loop(
     candidates = candidates or default_candidates()
     results_dir = Path(results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
+    master_log_path = results_dir / MASTER_LOG_NAME
+    champion_path = results_dir / CHAMPION_NAME
+    prev_champion = _load_champion(champion_path)
+
+    if prev_champion:
+        print(f"[autoresearch] current champion: {prev_champion['name']} "
+              f"({PRIMARY_METRIC_NAME}={prev_champion['metric']:.2f}, "
+              f"from run {prev_champion.get('run_id', '?')})")
+    else:
+        print("[autoresearch] no champion on file yet -- this run will set one")
 
     t0 = time.perf_counter()
     results: List[CandidateResult] = []
@@ -294,6 +365,19 @@ def run_loop(
     if best and baseline_metric is not None:
         improvement = baseline_metric - best.metrics[PRIMARY_METRIC_NAME]
 
+    # Champion logic: promote best of this run if it beats the prior champion.
+    new_champion_promoted = False
+    improvement_vs_champion: float | None = None
+    if best is not None:
+        best_metric_val = best.metrics[PRIMARY_METRIC_NAME]
+        if prev_champion is None:
+            new_champion_promoted = True
+        elif best_metric_val < prev_champion["metric"]:
+            improvement_vs_champion = prev_champion["metric"] - best_metric_val
+            new_champion_promoted = True
+        else:
+            improvement_vs_champion = prev_champion["metric"] - best_metric_val  # negative
+
     report = RunReport(
         run_id=str(uuid.uuid4())[:8],
         timestamp=pd.Timestamp.utcnow().isoformat(),
@@ -304,8 +388,13 @@ def run_loop(
         results=results,
         best_name=best.name if best else None,
         best_metric=best.metrics[PRIMARY_METRIC_NAME] if best else None,
+        baseline_name=best_baseline.name if best_baseline else None,
         baseline_metric=baseline_metric,
         improvement_vs_baseline=improvement,
+        prev_champion_name=prev_champion["name"] if prev_champion else None,
+        prev_champion_metric=prev_champion["metric"] if prev_champion else None,
+        new_champion=new_champion_promoted,
+        improvement_vs_champion=improvement_vs_champion,
         env={
             "python": platform.python_version(),
             "platform": platform.platform(),
@@ -343,6 +432,36 @@ def run_loop(
         print(f"[autoresearch] best baseline: {best_baseline.name} "
               f"({baseline_metric:.2f}) -> best is {abs(improvement):.2f} "
               f"{sign} best baseline")
+
+    # Champion bookkeeping: append every result to the master log; if this
+    # run promoted a new champion, overwrite champion.json so future runs use
+    # it as the bar to beat.
+    _append_master_log(master_log_path, report.run_id, report.timestamp, results)
+
+    if best is not None and new_champion_promoted:
+        champion_record = {
+            "name": best.name,
+            "metric": best.metrics[PRIMARY_METRIC_NAME],
+            "run_id": report.run_id,
+            "timestamp_utc": report.timestamp,
+            "feature_config": best.feature_config,
+            "is_baseline": best.is_baseline,
+        }
+        _save_champion(champion_path, champion_record)
+        if prev_champion is None:
+            print(f"[autoresearch] CHAMPION SET: {best.name} "
+                  f"({PRIMARY_METRIC_NAME}={best.metrics[PRIMARY_METRIC_NAME]:.2f})")
+        else:
+            print(f"[autoresearch] NEW CHAMPION: {best.name} beats "
+                  f"{prev_champion['name']} by {improvement_vs_champion:.2f} "
+                  f"({PRIMARY_METRIC_NAME}: {prev_champion['metric']:.2f} -> "
+                  f"{best.metrics[PRIMARY_METRIC_NAME]:.2f})")
+    elif prev_champion is not None and improvement_vs_champion is not None:
+        print(f"[autoresearch] champion unchanged: {prev_champion['name']} "
+              f"still leads ({PRIMARY_METRIC_NAME}={prev_champion['metric']:.2f}); "
+              f"this run's best was {abs(improvement_vs_champion):.2f} above it")
+
     print(f"[autoresearch] wrote {out_json.name} + leaderboard.csv to {results_dir}")
+    print(f"[autoresearch] appended {len(results)} rows to {MASTER_LOG_NAME}")
 
     return report

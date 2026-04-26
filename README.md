@@ -142,6 +142,91 @@ next iteration.
 
 ---
 
+## 3. Cross-run analysis & champion tracking
+
+The loop maintains two cross-run files in `experiments/results/`:
+
+- `master_log.csv` — every candidate from every run, appended one row each.
+  This is your single source of truth for "what have I tried so far?".
+- `champion.json` — the current best-performing candidate. Auto-updated
+  whenever a run produces a result with a lower validation MSE than the
+  previous champion. Each run prints "current champion" at the start and
+  "NEW CHAMPION" / "champion unchanged" at the end.
+
+To inspect history without writing pandas every time:
+
+```bash
+python analyze_runs.py             # all-time leaderboard + per-run summary + champion
+python analyze_runs.py --top 20    # show more leaderboard rows
+python analyze_runs.py --ablation  # mean / std / best per candidate across runs
+```
+
+### Picking specs for the next iteration
+
+Use the cross-run leaderboard to spot **ablation pairs** — candidates that
+differ by exactly one knob:
+
+| comparison | what it isolates |
+|---|---|
+| `ridge_cal_temp` vs `ridge_cal_temp_apptemp` | apparent-temperature feature |
+| `ridge_cal_temp_apptemp` vs `rf_cal_temp_apptemp` | linearity vs trees |
+| `rf_cal_temp_apptemp` vs `gbm_full` | adding observed RRP + boosting |
+| any candidate vs `seasonal_naive_364` | "did I beat the trivial yearly recall?" |
+
+Decision rule: pick the *smallest* candidate whose MSE meaningfully beats
+the strongest baseline; ties broken by lower `runtime_sec`. Then set up
+your next iteration by adding new variants of that candidate (different
+hyperparameters, more lags, different features) to `default_candidates()`
+and re-running.
+
+The champion is the natural reference for the next iteration: any new
+candidate you add should aim to beat it. Because it auto-updates, you
+never have to manually re-anchor.
+
+---
+
+## Failure modes & how to see them
+
+### Silent (the dangerous ones)
+
+These don't crash the run; they quietly distort results.
+
+| Failure | How it shows up | How to detect |
+|---|---|---|
+| Date gaps in merged panel | Lag features computed across gaps as if they were contiguous | `python -m src.data_loader` runs the validator and lists warnings |
+| Non-overlapping source date ranges | Merged panel shrinks; `n_train` in run report drops | Validator + `n_train` in `run_<id>.json` |
+| `demand` NaNs | Rows silently dropped during feature build | Validator + comparing `n_train` across candidates |
+| Lag warmup eats early train rows | `n_train` smaller than expected | `n_train` in run report; expected ≈ rows minus longest lag |
+| Day-of-week shift via `period=365` (non-multiple of 7) | Slightly worse MSE for what looks like a yearly cycle | Compared `period=364` vs `period=365` explicitly; baseline uses 364 |
+| Observed RRP used as feature (semantic) | Optimistic MSE for `gbm_full` since real-time you'd only have *predicted* RRP | Flagged here; future iteration should swap to a 2-stage pipeline (charter calls for this) |
+| SeasonalNaive lookup falls back to mean | Flat predictions at the start of validation | Only happens if `period > train history depth`; not the case here |
+| Train/val/test config changed mid-project | All prior runs become incomparable | `splits_summary` is recorded in every `run_<id>.json` — diff it against past runs |
+| Concurrent runs racing on `master_log.csv` | Interleaved/torn rows | Avoid: don't run two loops in parallel against the same `--results-dir` |
+
+### Loud (the visible ones)
+
+These either crash or show clearly in the artifacts.
+
+| Failure | Where you see it |
+|---|---|
+| Missing data CSV | `FileNotFoundError` from `data_loader.py` at startup |
+| Wrong CWD when running scripts | Files land where you ran from, not project root; check the "Wrote: ..." lines printed by each script |
+| A candidate raises during fit/predict | `error` field is populated for that row in `run_<id>_leaderboard.csv`, `master_log.csv`, and the JSON; the loop continues with the rest |
+| `sklearn` not installed | Import error from `default_candidates()`. The baseline path (`run_baseline.py`) does NOT need sklearn |
+| Duplicate dates in source CSV | `assert merged["time"].is_unique` fails in `data_loader.load_merged` |
+
+### Surfacing failures
+
+Three artifacts you should look at after any run:
+
+1. `run_<id>.json` → `splits_summary`, `env`, per-candidate `error` and `n_train`/`n_val`/`n_features` (silent-issue indicators).
+2. `master_log.csv` → quickly grep for `error` non-empty.
+3. `python analyze_runs.py` → if a candidate disappears from the leaderboard you didn't expect, it errored out.
+
+Run `python -m src.data_loader` whenever data files change to re-check silent data-quality issues before kicking off another loop.
+
+---
+
 ## Reproducibility notes
 
 - **No randomness in the split.** The test and val windows are defined by
