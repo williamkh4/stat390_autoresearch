@@ -26,13 +26,6 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Run artifacts (regenerable, can grow large over time).
-# The folders themselves are kept via .gitkeep so git tracks them.
-experiments/baseline_runs/*
-!experiments/baseline_runs/.gitkeep
-experiments/auto_runs/*
-!experiments/auto_runs/.gitkeep
-
 # Optional: uncomment to stop committing raw data (see README notes on this)
 # data/raw/*.csv
 
