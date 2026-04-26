@@ -1,0 +1,59 @@
+{
+  "kind": "baseline_analysis",
+  "timestamp_utc": "20260426T183356Z",
+  "splits_summary": "train: 2015-01-01 -> 2019-04-10 (1561 rows)\nval:   2019-04-11 -> 2019-10-07 (180 rows)\ntest:  2019-10-08 -> 2020-10-06 (365 rows)  [LOCKED]",
+  "runtime_sec": 0.03793250001035631,
+  "validation_demand_stats": {
+    "mean": 121923.08011111112,
+    "std": 12005.748771648425,
+    "n": 180
+  },
+  "best_baseline": "seasonal_naive_364",
+  "best_metric": 60410778.91466296,
+  "results": [
+    {
+      "name": "seasonal_naive_7",
+      "feature_config": {
+        "use_calendar": false,
+        "use_temp": false,
+        "use_apparent_temp": false,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": true,
+      "metrics": {
+        "mse_demand": 141138183.6274827,
+        "rmse_demand": 11880.159242513659,
+        "mae_demand": 9762.271280820696
+      },
+      "runtime_sec": 0.004307541996240616,
+      "n_train": 1561,
+      "n_val": 180,
+      "n_features": 0,
+      "error": null
+    },
+    {
+      "name": "seasonal_naive_364",
+      "feature_config": {
+        "use_calendar": false,
+        "use_temp": false,
+        "use_apparent_temp": false,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": true,
+      "metrics": {
+        "mse_demand": 60410778.91466296,
+        "rmse_demand": 7772.437128382768,
+        "mae_demand": 6270.753833333328
+      },
+      "runtime_sec": 0.003190833958797157,
+      "n_train": 1561,
+      "n_val": 180,
+      "n_features": 0,
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "run_id": "68a6c1bb",
+  "timestamp": "2026-04-26T18:34:23.588814+00:00",
+  "total_runtime_sec": 8.332394624943845,
+  "fit_count": 6,
+  "n_candidates": 6,
+  "splits_summary": "train: 2015-01-01 -> 2019-04-10 (1561 rows)\nval:   2019-04-11 -> 2019-10-07 (180 rows)\ntest:  2019-10-08 -> 2020-10-06 (365 rows)  [LOCKED]",
+  "best_name": "gbm__cal_temp_lag1-7__n300_depth3_lr0.05_sub1.0_leaf10",
+  "best_metric": 12940623.142789703,
+  "baseline_name": "seasonal_naive_364",
+  "baseline_metric": 60410778.91466296,
+  "improvement_vs_baseline": 47470155.77187325,
+  "prev_champion_name": null,
+  "prev_champion_metric": null,
+  "new_champion": true,
+  "improvement_vs_champion": null,
+  "env": {
+    "python": "3.10.5",
+    "platform": "macOS-26.3.1-arm64-arm-64bit"
+  },
+  "results": [
+    {
+      "name": "seasonal_naive_7",
+      "feature_config": {
+        "use_calendar": false,
+        "use_temp": false,
+        "use_apparent_temp": false,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": true,
+      "metrics": {
+        "mse_demand": 141138183.6274827,
+        "rmse_demand": 11880.159242513659,
+        "mae_demand": 9762.271280820696
+      },
+      "runtime_sec": 0.008077917038463056,
+      "n_train": 1561,
+      "n_val": 180,
+      "n_features": 0,
+      "error": null
+    },
+    {
+      "name": "seasonal_naive_364",
+      "feature_config": {
+        "use_calendar": false,
+        "use_temp": false,
+        "use_apparent_temp": false,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": true,
+      "metrics": {
+        "mse_demand": 60410778.91466296,
+        "rmse_demand": 7772.437128382768,
+        "mae_demand": 6270.753833333328
+      },
+      "runtime_sec": 0.004703416023403406,
+      "n_train": 1561,
+      "n_val": 180,
+      "n_features": 0,
+      "error": null
+    },
+    {
+      "name": "gbm__cal_temp_lag1-7__n300_depth3_lr0.05_sub1.0_leaf10",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": false,
+        "use_rrp": false,
+        "demand_lags": [
+          1,
+          7
+        ],
+        "rolling_windows": []
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 12940623.142789703,
+        "rmse_demand": 3597.3077631458923,
+        "mae_demand": 2677.827791067312
+      },
+      "runtime_sec": 3.9548172909999266,
+      "n_train": 1550,
+      "n_val": 180,
+      "n_features": 20,
+      "error": null
+    },
+    {
+      "name": "mlp__cal_temp_apptemp_lag1-7-14_roll7-28__hls64x32_actrelu_solveradam_alpha0.01_lrinit0.001_iter500",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": false,
+        "demand_lags": [
+          1,
+          7,
+          14
+        ],
+        "rolling_windows": [
+          7,
+          28
+        ]
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 617965673.1814106,
+        "rmse_demand": 24858.91536615004,
+        "mae_demand": 19730.183427165062
+      },
+      "runtime_sec": 2.187875415896997,
+      "n_train": 1529,
+      "n_val": 180,
+      "n_features": 26,
+      "error": null
+    },
+    {
+      "name": "mlp__cal_temp_apptemp__hls64x32_actrelu_solveradam_alpha0.01_lrinit0.001_iter500",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 964482907.2508109,
+        "rmse_demand": 31056.12511648565,
+        "mae_demand": 25145.044697716738
+      },
+      "runtime_sec": 1.9849632090190426,
+      "n_train": 1557,
+      "n_val": 180,
+      "n_features": 21,
+      "error": null
+    },
+    {
+      "name": "rf__full_lag1-7-14_roll7-28__n200_depthNone_leaf10_featsqrt",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": true,
+        "demand_lags": [
+          1,
+          7,
+          14
+        ],
+        "rolling_windows": [
+          7,
+          28
+        ]
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 17154955.638132673,
+        "rmse_demand": 4141.854130474982,
+        "mae_demand": 3205.681321127013
+      },
+      "runtime_sec": 0.19122641696594656,
+      "n_train": 1529,
+      "n_val": 180,
+      "n_features": 27,
+      "error": null
+    }
+  ]
+}

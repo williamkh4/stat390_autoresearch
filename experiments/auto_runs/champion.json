@@ -1,0 +1,18 @@
+{
+  "name": "gbm__cal_temp_apptemp_lag1-7__n300_depth3_lr0.05_sub1.0_losshuber",
+  "metric": 11234954.773836525,
+  "run_id": "e2e5a30e",
+  "timestamp_utc": "2026-04-26T18:34:49.265906+00:00",
+  "feature_config": {
+    "use_calendar": true,
+    "use_temp": true,
+    "use_apparent_temp": true,
+    "use_rrp": false,
+    "demand_lags": [
+      1,
+      7
+    ],
+    "rolling_windows": []
+  },
+  "is_baseline": false
+}

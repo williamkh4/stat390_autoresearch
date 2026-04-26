@@ -1,0 +1,185 @@
+{
+  "run_id": "ade85d3c",
+  "timestamp": "2026-04-26T18:35:12.008841+00:00",
+  "total_runtime_sec": 8.909374207956716,
+  "fit_count": 7,
+  "n_candidates": 7,
+  "splits_summary": "train: 2015-01-01 -> 2019-04-10 (1561 rows)\nval:   2019-04-11 -> 2019-10-07 (180 rows)\ntest:  2019-10-08 -> 2020-10-06 (365 rows)  [LOCKED]",
+  "best_name": "gbm__cal_temp_apptemp_lag1-7__n300_depth3_lr0.05_sub1.0_losshuber",
+  "best_metric": 11234954.773836525,
+  "baseline_name": "seasonal_naive_364",
+  "baseline_metric": 60410778.91466296,
+  "improvement_vs_baseline": 49175824.140826434,
+  "prev_champion_name": "gbm__cal_temp_apptemp_lag1-7__n300_depth3_lr0.05_sub1.0_losshuber",
+  "prev_champion_metric": 11234954.773836525,
+  "new_champion": false,
+  "improvement_vs_champion": 0.0,
+  "env": {
+    "python": "3.10.5",
+    "platform": "macOS-26.3.1-arm64-arm-64bit"
+  },
+  "results": [
+    {
+      "name": "seasonal_naive_7",
+      "feature_config": {
+        "use_calendar": false,
+        "use_temp": false,
+        "use_apparent_temp": false,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": true,
+      "metrics": {
+        "mse_demand": 141138183.6274827,
+        "rmse_demand": 11880.159242513659,
+        "mae_demand": 9762.271280820696
+      },
+      "runtime_sec": 0.0042421669932082295,
+      "n_train": 1561,
+      "n_val": 180,
+      "n_features": 0,
+      "error": null
+    },
+    {
+      "name": "seasonal_naive_364",
+      "feature_config": {
+        "use_calendar": false,
+        "use_temp": false,
+        "use_apparent_temp": false,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": true,
+      "metrics": {
+        "mse_demand": 60410778.91466296,
+        "rmse_demand": 7772.437128382768,
+        "mae_demand": 6270.753833333328
+      },
+      "runtime_sec": 0.002664041006937623,
+      "n_train": 1561,
+      "n_val": 180,
+      "n_features": 0,
+      "error": null
+    },
+    {
+      "name": "gbm__cal_temp_apptemp_lag1-7__n300_depth3_lr0.05_sub1.0_losshuber",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": false,
+        "demand_lags": [
+          1,
+          7
+        ],
+        "rolling_windows": []
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 11234954.773836525,
+        "rmse_demand": 3351.8584059945797,
+        "mae_demand": 2601.408759083337
+      },
+      "runtime_sec": 1.8277747080428526,
+      "n_train": 1550,
+      "n_val": 180,
+      "n_features": 23,
+      "error": null
+    },
+    {
+      "name": "mlp__cal_temp_apptemp__hls64x32_actrelu_solveradam_alpha0.001_lrinit0.001_iter1000_earlystopTrue_valf0.15",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 44306944.35121631,
+        "rmse_demand": 6656.3461712275985,
+        "mae_demand": 5155.395132893357
+      },
+      "runtime_sec": 5.544583250069991,
+      "n_train": 1557,
+      "n_val": 180,
+      "n_features": 21,
+      "error": null
+    },
+    {
+      "name": "ridge__cal_temp_apptemp__alpha10.0",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 92817546.3607464,
+        "rmse_demand": 9634.186336206416,
+        "mae_demand": 7638.004831873206
+      },
+      "runtime_sec": 0.004865750088356435,
+      "n_train": 1557,
+      "n_val": 180,
+      "n_features": 21,
+      "error": null
+    },
+    {
+      "name": "rf__cal_temp_apptemp_lag1-7_roll7__n200_depthNone_leaf5_featsqrt_bootFalse",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": false,
+        "demand_lags": [
+          1,
+          7
+        ],
+        "rolling_windows": [
+          7
+        ]
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 13108932.23791744,
+        "rmse_demand": 3620.625945595242,
+        "mae_demand": 2871.8124935638134
+      },
+      "runtime_sec": 0.2154625830007717,
+      "n_train": 1550,
+      "n_val": 180,
+      "n_features": 24,
+      "error": null
+    },
+    {
+      "name": "gbm__cal_temp_apptemp__n500_depth3_lr0.05_sub0.8_patience10_valf0.15",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": false,
+        "demand_lags": [],
+        "rolling_windows": []
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 19492463.231291916,
+        "rmse_demand": 4415.026979678823,
+        "mae_demand": 3508.254525149253
+      },
+      "runtime_sec": 1.3088789579924196,
+      "n_train": 1557,
+      "n_val": 180,
+      "n_features": 21,
+      "error": null
+    }
+  ]
+}
