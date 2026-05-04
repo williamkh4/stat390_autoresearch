@@ -29,6 +29,10 @@ Thumbs.db
 # Optional: uncomment to stop committing raw data (see README notes on this)
 # data/raw/*.csv
 
+# Word docs and other evaluation documents
+*.docx
+*.pdf
+
 # Build / packaging
 build/
 dist/
