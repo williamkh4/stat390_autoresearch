@@ -171,7 +171,7 @@ the cross-run master log.
 - [x] M4 — At least 5 dry-run experiments logged; ablation visible across runs (see §11).
 - [ ] M5 — At least one non-baseline candidate beats `seasonal_naive_364` by a meaningful margin.
 - [ ] M6 — Two-stage RRP → demand pipeline added as a candidate; H2 tested without the observed-RRP leak.
-- [ ] M7 — Final test-set evaluation of the champion. Single number reported, no further tuning.
+- [x] M7 — Final test-set evaluation of the champion. Runner is `run_test_evaluation.py` (refits the champion on train+val, predicts on the locked test set, also evaluates both seasonal naives on test for context). Spend the test set deliberately: the script refuses repeat evaluations of the same champion by default. See FAILURE_ANALYSIS_MEMO.docx for the recommendation to add a noise floor (L4) before reading the test number as definitive.
 
 ---
 

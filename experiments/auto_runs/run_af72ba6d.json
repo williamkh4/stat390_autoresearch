@@ -1,7 +1,7 @@
 {
-  "run_id": "68a6c1bb",
-  "timestamp": "2026-04-26T18:34:23.588814+00:00",
-  "total_runtime_sec": 8.332394624943845,
+  "run_id": "af72ba6d",
+  "timestamp": "2026-05-04T05:29:39.654127+00:00",
+  "total_runtime_sec": 9.046574833992054,
   "fit_count": 6,
   "n_candidates": 6,
   "splits_summary": "train: 2015-01-01 -> 2019-04-10 (1561 rows)\nval:   2019-04-11 -> 2019-10-07 (180 rows)\ntest:  2019-10-08 -> 2020-10-06 (365 rows)  [LOCKED]",
@@ -16,7 +16,9 @@
   "improvement_vs_champion": null,
   "env": {
     "python": "3.10.5",
-    "platform": "macOS-26.3.1-arm64-arm-64bit"
+    "platform": "macOS-26.3.1-arm64-arm-64bit",
+    "promote_on": "val",
+    "evaluate_on_test": "True"
   },
   "results": [
     {
@@ -35,11 +37,17 @@
         "rmse_demand": 11880.159242513659,
         "mae_demand": 9762.271280820696
       },
-      "runtime_sec": 0.008077917038463056,
+      "runtime_sec": 0.010937665996607393,
       "n_train": 1561,
       "n_val": 180,
       "n_features": 0,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 207834241.32481366,
+        "rmse_demand": 14416.45730839632,
+        "mae_demand": 12113.128072003377
+      },
+      "n_test": 365
     },
     {
       "name": "seasonal_naive_364",
@@ -57,11 +65,17 @@
         "rmse_demand": 7772.437128382768,
         "mae_demand": 6270.753833333328
       },
-      "runtime_sec": 0.004703416023403406,
+      "runtime_sec": 0.007343959005083889,
       "n_train": 1561,
       "n_val": 180,
       "n_features": 0,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 224849543.5511672,
+        "rmse_demand": 14994.983946345765,
+        "mae_demand": 11030.623232639775
+      },
+      "n_test": 365
     },
     {
       "name": "gbm__cal_temp_lag1-7__n300_depth3_lr0.05_sub1.0_leaf10",
@@ -82,11 +96,17 @@
         "rmse_demand": 3597.3077631458923,
         "mae_demand": 2677.827791067312
       },
-      "runtime_sec": 3.9548172909999266,
+      "runtime_sec": 2.394345082997461,
       "n_train": 1550,
       "n_val": 180,
       "n_features": 20,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 25477518.057958845,
+        "rmse_demand": 5047.5259343522785,
+        "mae_demand": 3991.1765167219933
+      },
+      "n_test": 365
     },
     {
       "name": "mlp__cal_temp_apptemp_lag1-7-14_roll7-28__hls64x32_actrelu_solveradam_alpha0.01_lrinit0.001_iter500",
@@ -111,11 +131,17 @@
         "rmse_demand": 24858.91536615004,
         "mae_demand": 19730.183427165062
       },
-      "runtime_sec": 2.187875415896997,
+      "runtime_sec": 3.1907224169990513,
       "n_train": 1529,
       "n_val": 180,
       "n_features": 26,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 655714101.6946461,
+        "rmse_demand": 25606.91511476238,
+        "mae_demand": 21270.028445343916
+      },
+      "n_test": 365
     },
     {
       "name": "mlp__cal_temp_apptemp__hls64x32_actrelu_solveradam_alpha0.01_lrinit0.001_iter500",
@@ -133,11 +159,17 @@
         "rmse_demand": 31056.12511648565,
         "mae_demand": 25145.044697716738
       },
-      "runtime_sec": 1.9849632090190426,
+      "runtime_sec": 3.189796208011103,
       "n_train": 1557,
       "n_val": 180,
       "n_features": 21,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 969370536.0981392,
+        "rmse_demand": 31134.715930904833,
+        "mae_demand": 25065.659201878396
+      },
+      "n_test": 365
     },
     {
       "name": "rf__full_lag1-7-14_roll7-28__n200_depthNone_leaf10_featsqrt",
@@ -160,13 +192,19 @@
       "metrics": {
         "mse_demand": 17154955.638132673,
         "rmse_demand": 4141.854130474982,
-        "mae_demand": 3205.681321127013
+        "mae_demand": 3205.681321127012
       },
-      "runtime_sec": 0.19122641696594656,
+      "runtime_sec": 0.25277058299980126,
       "n_train": 1529,
       "n_val": 180,
       "n_features": 27,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 29801368.84184424,
+        "rmse_demand": 5459.063000354936,
+        "mae_demand": 4234.367070434069
+      },
+      "n_test": 365
     }
   ]
 }

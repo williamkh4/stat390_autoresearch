@@ -1,0 +1,65 @@
+{
+  "series": "B",
+  "results": [
+    {
+      "series": "B",
+      "label": "B1_numpy_ols",
+      "model_type": "numpy_ols",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 41065609.77604744,
+      "rmse_demand": 6408.245452231636,
+      "mae_demand": 5082.455382025131,
+      "runtime_sec": 0.004027999995741993,
+      "error": ""
+    },
+    {
+      "series": "B",
+      "label": "B2_ridge",
+      "model_type": "ridge",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 40971563.86261176,
+      "rmse_demand": 6400.903363011487,
+      "mae_demand": 5073.096479334173,
+      "runtime_sec": 0.09702224998909514,
+      "error": ""
+    },
+    {
+      "series": "B",
+      "label": "B3_rf",
+      "model_type": "rf",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 14373526.781638894,
+      "rmse_demand": 3791.243434763705,
+      "mae_demand": 2966.7351981476377,
+      "runtime_sec": 0.3506025000096997,
+      "error": ""
+    },
+    {
+      "series": "B",
+      "label": "B4_mlp_champ",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8879955.29711122,
+      "rmse_demand": 2979.9253844872055,
+      "mae_demand": 2320.079796091271,
+      "runtime_sec": 4.306189499999164,
+      "error": ""
+    },
+    {
+      "series": "B",
+      "label": "B5_gbm",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10564233.849169677,
+      "rmse_demand": 3250.266735080319,
+      "mae_demand": 2453.2396369790877,
+      "runtime_sec": 1.555070957998396,
+      "error": ""
+    }
+  ]
+}

@@ -592,22 +592,42 @@ class CandidateResult:
     name: str
     feature_config: Dict[str, Any]
     is_baseline: bool
-    metrics: Dict[str, float]
+    metrics: Dict[str, float]            # validation metrics (primary surface)
     runtime_sec: float
     n_train: int
     n_val: int
     n_features: int
     error: str | None = None
+    # Optional: only populated when run_loop is invoked with
+    # evaluate_on_test=True. Kept separate from `metrics` so the validation
+    # surface remains the canonical interpretation of "metrics" everywhere
+    # else in the codebase, and so reading old run_<id>.json files (which
+    # don't have this field) keeps working.
+    test_metrics: Dict[str, float] = field(default_factory=dict)
+    n_test: int = 0
 
 
 def _is_baseline_model(model: Any) -> bool:
     return isinstance(model, SeasonalNaive)
 
 
-def score_candidate(candidate: Candidate, splits: Splits) -> CandidateResult:
+def score_candidate(candidate: Candidate, splits: Splits,
+                    evaluate_on_test: bool = False) -> CandidateResult:
+    """Fit a candidate on train, score on val, optionally also on test.
+
+    The validation score is the primary research surface and is always
+    populated. When `evaluate_on_test=True`, the *same* train-only model
+    additionally predicts on `splits.test` and the test metrics are
+    populated. The model is NOT refit on train+val for this; that
+    apples-to-apples comparison with val is more useful in-loop than the
+    deployment-style refit (which `run_test_evaluation.py` provides for
+    the final champion).
+    """
     t0 = time.perf_counter()
     try:
         model = candidate.model_factory()
+        test_metrics: Dict[str, float] = {}
+        n_test = 0
 
         if _is_baseline_model(model):
             # Seasonal naive uses time + y directly.
@@ -618,18 +638,29 @@ def score_candidate(candidate: Candidate, splits: Splits) -> CandidateResult:
             n_features = 0
             n_train = len(train_hist)
             n_val = len(splits.val)
+            if evaluate_on_test:
+                y_pred_test = model.predict(splits.test["time"])
+                y_true_test = splits.test["demand"].to_numpy(dtype=float)
+                test_metrics = score_all(y_true_test, y_pred_test)
+                n_test = len(splits.test)
         else:
             fc = candidate.feature_config
 
-            # Fit feature frame on train+val concatenated, but only train rows
-            # get used for fitting; val rows get used only for prediction.
-            # This keeps lag/rolling windows contiguous across the boundary.
-            combined = pd.concat([splits.train, splits.val]).reset_index(drop=True)
-            boundary = splits.train["time"].max()
+            # Fit feature frame on the concatenation of train + val (and test
+            # too, when needed) so lag/rolling windows are contiguous across
+            # all split boundaries. The model still only sees train rows
+            # during fit; val + test rows are predict-only.
+            frames = [splits.train, splits.val]
+            if evaluate_on_test:
+                frames.append(splits.test)
+            combined = pd.concat(frames).reset_index(drop=True)
+            train_boundary = splits.train["time"].max()
+            val_boundary = splits.val["time"].max()
 
             X, y, feat_names, times = build_features(combined, fc)
-            train_mask = times <= boundary
-            val_mask = ~train_mask
+            train_mask = times <= train_boundary
+            val_mask = (times > train_boundary) & (times <= val_boundary)
+            test_mask = times > val_boundary
 
             X_train, y_train = X[train_mask], y[train_mask]
             X_val, y_val = X[val_mask], y[val_mask]
@@ -640,6 +671,12 @@ def score_candidate(candidate: Candidate, splits: Splits) -> CandidateResult:
             n_features = len(feat_names)
             n_train = int(train_mask.sum())
             n_val = int(val_mask.sum())
+            if evaluate_on_test:
+                X_test, y_test = X[test_mask], y[test_mask]
+                if len(y_test) > 0:
+                    y_pred_test = model.predict(X_test)
+                    test_metrics = score_all(y_test, y_pred_test)
+                    n_test = int(test_mask.sum())
 
         metrics = score_all(y_true, y_pred)
         runtime = time.perf_counter() - t0
@@ -648,9 +685,11 @@ def score_candidate(candidate: Candidate, splits: Splits) -> CandidateResult:
             feature_config=asdict(candidate.feature_config),
             is_baseline=candidate.is_baseline,
             metrics=metrics,
+            test_metrics=test_metrics,
             runtime_sec=runtime,
             n_train=n_train,
             n_val=n_val,
+            n_test=n_test,
             n_features=n_features,
         )
     except Exception as exc:
@@ -738,7 +777,12 @@ def _append_master_log(
     timestamp: str,
     results: List[CandidateResult],
 ) -> None:
-    """Append one row per candidate to the cross-run master log."""
+    """Append one row per candidate to the cross-run master log.
+
+    Test columns (`mse_demand_test`, etc.) are populated only when the
+    run was invoked with `evaluate_on_test=True`; otherwise they are NaN
+    and existing analyses keying off the val columns continue to work.
+    """
     rows = [
         {
             "run_id": run_id,
@@ -748,10 +792,14 @@ def _append_master_log(
             PRIMARY_METRIC_NAME: r.metrics.get(PRIMARY_METRIC_NAME),
             "rmse_demand": r.metrics.get("rmse_demand"),
             "mae_demand": r.metrics.get("mae_demand"),
+            "mse_demand_test": r.test_metrics.get(PRIMARY_METRIC_NAME),
+            "rmse_demand_test": r.test_metrics.get("rmse_demand"),
+            "mae_demand_test": r.test_metrics.get("mae_demand"),
             "runtime_sec": r.runtime_sec,
             "n_features": r.n_features,
             "n_train": r.n_train,
             "n_val": r.n_val,
+            "n_test": r.n_test,
             "error": r.error or "",
         }
         for r in results
@@ -763,22 +811,71 @@ def _append_master_log(
         df.to_csv(path, index=False)
 
 
+# Where to read the candidate's score from when ranking / promoting champion.
+PROMOTE_VAL = "val"
+PROMOTE_TEST = "test"
+
+
+def _result_score(r: CandidateResult, promote_on: str) -> float | None:
+    """Return the metric value used for ranking under the chosen policy."""
+    if promote_on == PROMOTE_TEST:
+        return r.test_metrics.get(PRIMARY_METRIC_NAME)
+    return r.metrics.get(PRIMARY_METRIC_NAME)
+
+
 def run_loop(
     splits: Splits,
     candidates: List[Candidate] | None = None,
     results_dir: Path | str = "experiments/auto_runs",
+    evaluate_on_test: bool = False,
+    promote_on: str = PROMOTE_VAL,
 ) -> RunReport:
-    """Fit + score every candidate once; write leaderboard; return report."""
+    """Fit + score every candidate once; write leaderboard; return report.
+
+    Args:
+        evaluate_on_test: If True, also score every candidate on the
+            locked test set (the same train-only model is used to predict
+            both val and test). Adds `*_test` columns to master_log and
+            the run JSON. Default False keeps the locked test set
+            untouched, preserving the held-out semantics.
+        promote_on: One of ``"val"`` (default) or ``"test"``. Picks
+            which metric source ranks candidates and decides champion
+            promotion. ``"test"`` requires `evaluate_on_test=True` and
+            burns the test set as a tuning surface -- the loop will
+            print a warning when this is selected.
+    """
     candidates = candidates or default_candidates()
+    if promote_on not in (PROMOTE_VAL, PROMOTE_TEST):
+        raise ValueError(f"promote_on must be 'val' or 'test', got {promote_on!r}")
+    if promote_on == PROMOTE_TEST and not evaluate_on_test:
+        raise ValueError(
+            "promote_on='test' requires evaluate_on_test=True; otherwise "
+            "candidates have no test metric to rank by."
+        )
+
     results_dir = Path(results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
     master_log_path = results_dir / MASTER_LOG_NAME
     champion_path = results_dir / CHAMPION_NAME
     prev_champion = _load_champion(champion_path)
 
+    if promote_on == PROMOTE_TEST:
+        print("=" * 70)
+        print("WARNING: promote_on='test' is enabled.")
+        print("  The locked 365-day test set is being used as a tuning surface.")
+        print("  Every candidate evaluated this way is one more 'look' at the")
+        print("  held-out window; after enough runs, lowest-test-MSE wins by")
+        print("  overfitting to it, not by generalising. See ERROR_TAXONOMY.md")
+        print("  item L5 / FAILURE_ANALYSIS_MEMO.docx. Use this only when you")
+        print("  understand the trade-off.")
+        print("=" * 70)
+
+    metric_label = f"{PRIMARY_METRIC_NAME}_test" if promote_on == PROMOTE_TEST \
+        else PRIMARY_METRIC_NAME
+
     if prev_champion:
         print(f"[autoresearch] current champion: {prev_champion['name']} "
-              f"({PRIMARY_METRIC_NAME}={prev_champion['metric']:.2f}, "
+              f"({metric_label}={prev_champion['metric']:.2f}, "
               f"from run {prev_champion.get('run_id', '?')})")
     else:
         print("[autoresearch] no champion on file yet -- this run will set one")
@@ -787,38 +884,44 @@ def run_loop(
     results: List[CandidateResult] = []
     for cand in candidates:
         print(f"[autoresearch] scoring: {cand.describe()}")
-        res = score_candidate(cand, splits)
+        res = score_candidate(cand, splits, evaluate_on_test=evaluate_on_test)
         if res.error:
             print(f"  ! error: {res.error}  ({res.runtime_sec:.2f}s)")
         else:
-            print(f"  {PRIMARY_METRIC_NAME}={res.metrics[PRIMARY_METRIC_NAME]:.2f} "
+            val_str = f"val={res.metrics[PRIMARY_METRIC_NAME]:.2f}"
+            test_str = (f"  test={res.test_metrics.get(PRIMARY_METRIC_NAME):.2f}"
+                        if evaluate_on_test and res.test_metrics else "")
+            print(f"  {val_str}{test_str} "
                   f"({res.runtime_sec:.2f}s, n_features={res.n_features})")
         results.append(res)
     total_runtime = time.perf_counter() - t0
 
     # Build leaderboard: best (lowest) primary metric first, ignoring errors.
+    # Ranking metric depends on the promote_on policy.
+    def _rank_key(r: CandidateResult) -> float:
+        v = _result_score(r, promote_on)
+        return v if v is not None else float("inf")
+
     ranked = sorted(
-        [r for r in results if not r.error],
-        key=lambda r: r.metrics[PRIMARY_METRIC_NAME],
+        [r for r in results if not r.error and _result_score(r, promote_on) is not None],
+        key=_rank_key,
     )
     best = ranked[0] if ranked else None
-    baseline_results = [r for r in results if r.is_baseline and not r.error]
-    # When multiple baselines are registered, compare against the strongest
-    # one (lowest MSE) -- beating the weakest baseline is table stakes.
+    baseline_results = [r for r in results if r.is_baseline and not r.error
+                        and _result_score(r, promote_on) is not None]
     best_baseline = (
-        min(baseline_results, key=lambda r: r.metrics[PRIMARY_METRIC_NAME])
-        if baseline_results else None
+        min(baseline_results, key=_rank_key) if baseline_results else None
     )
-    baseline_metric = best_baseline.metrics[PRIMARY_METRIC_NAME] if best_baseline else None
+    baseline_metric = _result_score(best_baseline, promote_on) if best_baseline else None
     improvement = None
     if best and baseline_metric is not None:
-        improvement = baseline_metric - best.metrics[PRIMARY_METRIC_NAME]
+        improvement = baseline_metric - _result_score(best, promote_on)
 
     # Champion logic: promote best of this run if it beats the prior champion.
     new_champion_promoted = False
     improvement_vs_champion: float | None = None
     if best is not None:
-        best_metric_val = best.metrics[PRIMARY_METRIC_NAME]
+        best_metric_val = _result_score(best, promote_on)
         if prev_champion is None:
             new_champion_promoted = True
         elif best_metric_val < prev_champion["metric"]:
@@ -827,6 +930,7 @@ def run_loop(
         else:
             improvement_vs_champion = prev_champion["metric"] - best_metric_val  # negative
 
+    best_score = _result_score(best, promote_on) if best else None
     report = RunReport(
         run_id=str(uuid.uuid4())[:8],
         timestamp=pd.Timestamp.utcnow().isoformat(),
@@ -836,7 +940,7 @@ def run_loop(
         splits_summary=splits.describe(),
         results=results,
         best_name=best.name if best else None,
-        best_metric=best.metrics[PRIMARY_METRIC_NAME] if best else None,
+        best_metric=best_score,
         baseline_name=best_baseline.name if best_baseline else None,
         baseline_metric=baseline_metric,
         improvement_vs_baseline=improvement,
@@ -847,6 +951,8 @@ def run_loop(
         env={
             "python": platform.python_version(),
             "platform": platform.platform(),
+            "promote_on": promote_on,
+            "evaluate_on_test": str(evaluate_on_test),
         },
     )
 
@@ -855,27 +961,45 @@ def run_loop(
     with open(out_json, "w") as f:
         json.dump(report.to_dict(), f, indent=2, default=str)
 
-    leaderboard = pd.DataFrame([
-        {
+    leaderboard_rows = []
+    for r in results:
+        row = {
             "name": r.name,
             "is_baseline": r.is_baseline,
             PRIMARY_METRIC_NAME: r.metrics.get(PRIMARY_METRIC_NAME, np.nan),
             "rmse_demand": r.metrics.get("rmse_demand", np.nan),
             "mae_demand": r.metrics.get("mae_demand", np.nan),
+        }
+        if evaluate_on_test:
+            row["mse_demand_test"] = r.test_metrics.get(PRIMARY_METRIC_NAME, np.nan)
+            row["rmse_demand_test"] = r.test_metrics.get("rmse_demand", np.nan)
+            row["mae_demand_test"] = r.test_metrics.get("mae_demand", np.nan)
+        row.update({
             "runtime_sec": r.runtime_sec,
             "n_features": r.n_features,
             "error": r.error or "",
-        }
-        for r in results
-    ]).sort_values(PRIMARY_METRIC_NAME, na_position="last")
+        })
+        leaderboard_rows.append(row)
+    sort_col = "mse_demand_test" if promote_on == PROMOTE_TEST else PRIMARY_METRIC_NAME
+    leaderboard = pd.DataFrame(leaderboard_rows).sort_values(sort_col, na_position="last")
     leaderboard.to_csv(results_dir / f"run_{report.run_id}_leaderboard.csv", index=False)
 
     print()
     print(f"[autoresearch] run_id={report.run_id} total={total_runtime:.2f}s "
-          f"budget={report.fit_count} fits")
+          f"budget={report.fit_count} fits  promote_on={promote_on}")
     if best:
         print(f"[autoresearch] best: {report.best_name}  "
-              f"{PRIMARY_METRIC_NAME}={report.best_metric:.2f}")
+              f"{metric_label}={report.best_metric:.2f}")
+        # When test eval is on, also surface the val MSE so the gap is visible
+        # even though it's not the promotion criterion.
+        if evaluate_on_test and best.metrics and best.test_metrics:
+            other_label = (PRIMARY_METRIC_NAME if promote_on == PROMOTE_TEST
+                           else f"{PRIMARY_METRIC_NAME}_test")
+            other_val = (best.metrics.get(PRIMARY_METRIC_NAME)
+                         if promote_on == PROMOTE_TEST
+                         else best.test_metrics.get(PRIMARY_METRIC_NAME))
+            if other_val is not None:
+                print(f"[autoresearch] best (other side): {other_label}={other_val:.2f}")
     if improvement is not None:
         sign = "BELOW" if improvement > 0 else "ABOVE"
         print(f"[autoresearch] best baseline: {best_baseline.name} "
@@ -890,7 +1014,10 @@ def run_loop(
     if best is not None and new_champion_promoted:
         champion_record = {
             "name": best.name,
-            "metric": best.metrics[PRIMARY_METRIC_NAME],
+            "metric": best_score,
+            "metric_source": promote_on,   # 'val' or 'test'; new field
+            "val_metric": best.metrics.get(PRIMARY_METRIC_NAME),
+            "test_metric": best.test_metrics.get(PRIMARY_METRIC_NAME) if best.test_metrics else None,
             "run_id": report.run_id,
             "timestamp_utc": report.timestamp,
             "feature_config": best.feature_config,
@@ -899,15 +1026,14 @@ def run_loop(
         _save_champion(champion_path, champion_record)
         if prev_champion is None:
             print(f"[autoresearch] CHAMPION SET: {best.name} "
-                  f"({PRIMARY_METRIC_NAME}={best.metrics[PRIMARY_METRIC_NAME]:.2f})")
+                  f"({metric_label}={best_score:.2f})")
         else:
             print(f"[autoresearch] NEW CHAMPION: {best.name} beats "
                   f"{prev_champion['name']} by {improvement_vs_champion:.2f} "
-                  f"({PRIMARY_METRIC_NAME}: {prev_champion['metric']:.2f} -> "
-                  f"{best.metrics[PRIMARY_METRIC_NAME]:.2f})")
+                  f"({metric_label}: {prev_champion['metric']:.2f} -> {best_score:.2f})")
     elif prev_champion is not None and improvement_vs_champion is not None:
         print(f"[autoresearch] champion unchanged: {prev_champion['name']} "
-              f"still leads ({PRIMARY_METRIC_NAME}={prev_champion['metric']:.2f}); "
+              f"still leads ({metric_label}={prev_champion['metric']:.2f}); "
               f"this run's best was {abs(improvement_vs_champion):.2f} above it")
 
     print(f"[autoresearch] wrote {out_json.name} + leaderboard.csv to {results_dir}")

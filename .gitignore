@@ -26,6 +26,13 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# Test-set evaluation artifacts: keep folder tracked, ignore content so a
+# committed snapshot doesn't become a credibility issue (each commit is one
+# more public reading of the test set). Use git add -f if you really want
+# to commit a test-eval result after running it intentionally.
+experiments/test_evaluation/*
+!experiments/test_evaluation/.gitkeep
+
 # Optional: uncomment to stop committing raw data (see README notes on this)
 # data/raw/*.csv
 
@@ -33,3 +40,11 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+
+# Word docs and PDFs (regenerable from build_failure_memo.py + soffice).
+# These are deliverable artifacts the user edits / submits manually; they
+# don't belong in version control because they break diffs and balloon the
+# repo. Use `git add -f path/to/file.docx` if you really need to commit
+# a specific one (e.g. a frozen submission copy).
+*.docx
+*.pdf

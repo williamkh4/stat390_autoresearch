@@ -135,7 +135,23 @@ work without you re-editing the candidate list.
 python run_autoresearch.py                       # default 4 challengers
 python run_autoresearch.py --n-challengers 6     # try more this run
 python run_autoresearch.py --seed 42             # reproducible draw
+
+# Optional: also score every candidate on the locked test set, so val and
+# test metrics show side-by-side in the leaderboard. Champion promotion
+# still uses validation MSE -- this flag is for visibility, not selection.
+python run_autoresearch.py --evaluate-on-test
+
+# Opt-in: rank and promote the champion on TEST MSE instead of val.
+# This burns the test set as a tuning surface (every fit is one more "look")
+# and the loop prints a multi-line warning. Only use it if you understand
+# the trade-off; see ERROR_TAXONOMY.md L5 / FAILURE_ANALYSIS_MEMO.docx.
+python run_autoresearch.py --evaluate-on-test --promote-on=test
 ```
+
+When `--evaluate-on-test` is on, `master_log.csv` gains
+`mse_demand_test`, `rmse_demand_test`, `mae_demand_test`, and `n_test`
+columns alongside the existing val metrics; runs without the flag leave
+those cells blank, so prior history stays readable.
 
 The discrete search space lives in `src/autoresearch.py`:
 
@@ -265,6 +281,68 @@ Three artifacts you should look at after any run:
 3. `python analyze_runs.py` → if a candidate disappears from the leaderboard you didn't expect, it errored out.
 
 Run `python -m src.data_loader` whenever data files change to re-check silent data-quality issues before kicking off another loop.
+
+---
+
+## 4. Final test-set evaluation
+
+The locked 365-day test window (2019-10-08 → 2020-10-06) is constructed
+by `make_splits()` but is otherwise *never* read by `run_baseline.py`,
+`run_autoresearch.py`, or `run_controlled_experiments.py`. It exists as
+a single-shot held-out evaluator. When you're done iterating, run:
+
+```bash
+python run_test_evaluation.py
+```
+
+What this does:
+
+1. Loads `experiments/auto_runs/champion.json` and reconstructs the
+   exact candidate (model spec + feature config) from the search space.
+2. Re-fits that candidate on `train + val` concatenated (i.e. all
+   pre-test data — strictly chronological, no shuffling).
+3. Predicts on the locked test window and computes test MSE / RMSE / MAE.
+4. Also re-fits and evaluates both seasonal-naive baselines on test, so
+   the champion's test number has a contemporaneous reference.
+5. Prints `validation MSE`, `TEST MSE`, and `test − val` side by side
+   (the gap is itself diagnostic — see ERROR_TAXONOMY entry L4).
+6. Writes `experiments/test_evaluation/<run_id>__<timestamp>.json` and
+   appends a row to `test_log.csv`.
+
+The script refuses to evaluate the same champion twice by default
+(test-set credibility is finite — every repeat read makes the held-out
+estimator a little less held-out). Pass `--force` to override.
+
+> Note on statistical interpretation: a single test number without a
+> noise estimate is a point estimate, and `FAILURE_ANALYSIS_MEMO.docx`
+> argues for putting `--bootstrap` on `score_candidate` *before* using
+> the test set. If you run test evaluation now, treat the resulting
+> number as best-effort rather than statistically definitive.
+
+---
+
+## Analysis & deliverables
+
+The auto-driving loop is for *exploration*. For *interpretation*, the
+project ships five complementary artifacts, all checked into the repo:
+
+| artifact | path | what it is |
+|---|---|---|
+| Controlled experiment design | `EXPERIMENTS.md` | Three series (feature ablation / model class ablation / MLP lr sweep) where one variable changes per run and everything else is held fixed. |
+| Controlled experiment runner | `run_controlled_experiments.py` | Executes the controlled set; writes to `experiments/controlled/`. |
+| Result matrix | `analysis/result_matrix.{md,csv}` | Best validation MSE for each (feature_preset × model_type) combination across all auto-runs. |
+| Metric-over-time plot | `analysis/metric_over_time.png` | Champion-after-run line + best-of-run line + per-candidate scatter, with baseline references. Generate with `python plot_metric_over_time.py`. |
+| Error taxonomy | `ERROR_TAXONOMY.md` | Every issue encountered, categorised under Signal Failure / Code Instability / Evaluation Leakage / Agent Misbehavior. |
+| Failure analysis memo | `FAILURE_ANALYSIS_MEMO.docx` | One-page Word memo on the dominant failure mode (no statistical noise floor) and a five-step plan to fix it. Editable for submission; convert to PDF via Word's built-in export. Regenerate with `python build_failure_memo.py`. |
+
+These regenerate cheaply from `experiments/auto_runs/master_log.csv`,
+so re-running them after each new auto-iteration keeps the analysis
+in sync:
+
+```bash
+python plot_metric_over_time.py     # refreshes analysis/metric_over_time.png
+python build_result_matrix.py       # refreshes analysis/result_matrix.{csv,md}
+```
 
 ---
 

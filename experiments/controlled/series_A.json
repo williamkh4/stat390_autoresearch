@@ -1,0 +1,65 @@
+{
+  "series": "A",
+  "results": [
+    {
+      "series": "A",
+      "label": "A1_cal_lag",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=0 apptemp=0 rrp=0 lags=[1, 7] roll=[]",
+      "n_features": 10,
+      "mse_demand": 19971783.925567023,
+      "rmse_demand": 4468.980188540449,
+      "mae_demand": 3464.401302597417,
+      "runtime_sec": 5.4538441249897005,
+      "error": ""
+    },
+    {
+      "series": "A",
+      "label": "A2_cal_temp_lag",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=0 rrp=0 lags=[1, 7] roll=[]",
+      "n_features": 20,
+      "mse_demand": 10065437.517734569,
+      "rmse_demand": 3172.607368984471,
+      "mae_demand": 2421.5921569890647,
+      "runtime_sec": 3.8982492500072112,
+      "error": ""
+    },
+    {
+      "series": "A",
+      "label": "A3_+apparent_temp",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[]",
+      "n_features": 23,
+      "mse_demand": 9487838.06434208,
+      "rmse_demand": 3080.233443156879,
+      "mae_demand": 2396.3050821629163,
+      "runtime_sec": 3.5481512080004904,
+      "error": ""
+    },
+    {
+      "series": "A",
+      "label": "A4_+rolling7",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8879955.29711122,
+      "rmse_demand": 2979.9253844872055,
+      "mae_demand": 2320.079796091271,
+      "runtime_sec": 3.546576708002249,
+      "error": ""
+    },
+    {
+      "series": "A",
+      "label": "A5_+RRP_full",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=1 lags=[1, 7] roll=[7]",
+      "n_features": 25,
+      "mse_demand": 10340669.179115564,
+      "rmse_demand": 3215.6910888820717,
+      "mae_demand": 2500.8968081832204,
+      "runtime_sec": 3.594121374990209,
+      "error": ""
+    }
+  ]
+}

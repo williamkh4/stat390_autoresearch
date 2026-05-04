@@ -1,8 +1,11 @@
 {
-  "name": "gbm__cal_temp_apptemp_lag1-7__n300_depth3_lr0.05_sub1.0_losshuber",
-  "metric": 11234954.773836525,
-  "run_id": "e2e5a30e",
-  "timestamp_utc": "2026-04-26T18:34:49.265906+00:00",
+  "name": "mlp__cal_temp_apptemp_lag1-7_roll7__hls128x64_actrelu_solveradam_alpha0.001_lrinit0.01_iter500",
+  "metric": 8879955.29711122,
+  "metric_source": "val",
+  "val_metric": 8879955.29711122,
+  "test_metric": 18937353.75409846,
+  "run_id": "b059464d",
+  "timestamp_utc": "2026-05-04T06:35:50.213580+00:00",
   "feature_config": {
     "use_calendar": true,
     "use_temp": true,
@@ -12,7 +15,9 @@
       1,
       7
     ],
-    "rolling_windows": []
+    "rolling_windows": [
+      7
+    ]
   },
   "is_baseline": false
 }

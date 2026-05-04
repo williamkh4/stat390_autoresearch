@@ -1,7 +1,7 @@
 {
-  "run_id": "00a6bd6c",
-  "timestamp": "2026-04-26T18:34:39.900184+00:00",
-  "total_runtime_sec": 4.5508075000252575,
+  "run_id": "e03f22e1",
+  "timestamp": "2026-05-04T05:30:20.000679+00:00",
+  "total_runtime_sec": 4.640233709011227,
   "fit_count": 7,
   "n_candidates": 7,
   "splits_summary": "train: 2015-01-01 -> 2019-04-10 (1561 rows)\nval:   2019-04-11 -> 2019-10-07 (180 rows)\ntest:  2019-10-08 -> 2020-10-06 (365 rows)  [LOCKED]",
@@ -16,7 +16,9 @@
   "improvement_vs_champion": 0.0,
   "env": {
     "python": "3.10.5",
-    "platform": "macOS-26.3.1-arm64-arm-64bit"
+    "platform": "macOS-26.3.1-arm64-arm-64bit",
+    "promote_on": "val",
+    "evaluate_on_test": "True"
   },
   "results": [
     {
@@ -35,11 +37,17 @@
         "rmse_demand": 11880.159242513659,
         "mae_demand": 9762.271280820696
       },
-      "runtime_sec": 0.00474629201926291,
+      "runtime_sec": 0.011006040993379429,
       "n_train": 1561,
       "n_val": 180,
       "n_features": 0,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 207834241.32481366,
+        "rmse_demand": 14416.45730839632,
+        "mae_demand": 12113.128072003377
+      },
+      "n_test": 365
     },
     {
       "name": "seasonal_naive_364",
@@ -57,11 +65,17 @@
         "rmse_demand": 7772.437128382768,
         "mae_demand": 6270.753833333328
       },
-      "runtime_sec": 0.002738625044003129,
+      "runtime_sec": 0.007604457990964875,
       "n_train": 1561,
       "n_val": 180,
       "n_features": 0,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 224849543.5511672,
+        "rmse_demand": 14994.983946345765,
+        "mae_demand": 11030.623232639775
+      },
+      "n_test": 365
     },
     {
       "name": "gbm__cal_temp_lag1-7__n300_depth3_lr0.05_sub1.0_leaf10",
@@ -82,11 +96,17 @@
         "rmse_demand": 3597.3077631458923,
         "mae_demand": 2677.827791067312
       },
-      "runtime_sec": 1.4155642499681562,
+      "runtime_sec": 1.459113625009195,
       "n_train": 1550,
       "n_val": 180,
       "n_features": 20,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 25477518.057958845,
+        "rmse_demand": 5047.5259343522785,
+        "mae_demand": 3991.1765167219933
+      },
+      "n_test": 365
     },
     {
       "name": "ridge__cal_temp__alpha10.0",
@@ -104,11 +124,17 @@
         "rmse_demand": 9954.182605935228,
         "mae_demand": 7905.766420273258
       },
-      "runtime_sec": 0.010909291915595531,
+      "runtime_sec": 0.011870417001773603,
       "n_train": 1557,
       "n_val": 180,
       "n_features": 18,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 119863911.47019714,
+        "rmse_demand": 10948.237824882923,
+        "mae_demand": 8635.60110928787
+      },
+      "n_test": 365
     },
     {
       "name": "gbm__cal_temp__n300_depth3_lr0.05_sub1.0_leaf10",
@@ -126,11 +152,17 @@
         "rmse_demand": 4942.521303982177,
         "mae_demand": 3748.821911803641
       },
-      "runtime_sec": 0.9833545000292361,
+      "runtime_sec": 0.9730655000021216,
       "n_train": 1557,
       "n_val": 180,
       "n_features": 18,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 46243151.38019335,
+        "rmse_demand": 6800.231715183929,
+        "mae_demand": 5440.727861523541
+      },
+      "n_test": 365
     },
     {
       "name": "mlp__cal_temp__hls64x32_actrelu_solveradam_alpha0.0001_lrinit0.001_iter500",
@@ -148,11 +180,17 @@
         "rmse_demand": 25046.702905959588,
         "mae_demand": 20341.511921905687
       },
-      "runtime_sec": 2.1249800830846652,
+      "runtime_sec": 2.1730276250018505,
       "n_train": 1557,
       "n_val": 180,
       "n_features": 18,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 683829490.0905871,
+        "rmse_demand": 26150.133653398163,
+        "mae_demand": 20650.23179411353
+      },
+      "n_test": 365
     },
     {
       "name": "numpy_ols__cal_temp_apptemp_lag1-7__alpha10.0",
@@ -173,11 +211,17 @@
         "rmse_demand": 6652.5171640243,
         "mae_demand": 5207.407750712483
       },
-      "runtime_sec": 0.007767917006276548,
+      "runtime_sec": 0.0038862910005263984,
       "n_train": 1550,
       "n_val": 180,
       "n_features": 23,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 55595709.45602233,
+        "rmse_demand": 7456.253043990818,
+        "mae_demand": 5863.757468228348
+      },
+      "n_test": 365
     }
   ]
 }

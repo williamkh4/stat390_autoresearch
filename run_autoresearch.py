@@ -66,7 +66,33 @@ def main() -> None:
             "run automatically pulls a different slice of the search space."
         ),
     )
+    parser.add_argument(
+        "--evaluate-on-test",
+        action="store_true",
+        help=(
+            "Score every candidate on the locked test set IN ADDITION to "
+            "validation. Adds *_test columns to master_log and the run JSON. "
+            "Champion promotion still uses validation MSE unless "
+            "--promote-on=test is also passed. Use this flag to monitor the "
+            "val->test gap per candidate without burning the test set."
+        ),
+    )
+    parser.add_argument(
+        "--promote-on",
+        choices=["val", "test"],
+        default="val",
+        help=(
+            "Which metric source decides champion promotion. Default 'val' "
+            "preserves the locked-test-set design. Setting this to 'test' "
+            "requires --evaluate-on-test and means the loop will use TEST "
+            "MSE to rank and promote -- the loop prints a multi-line warning "
+            "in this mode because every candidate fit becomes one more 'look' "
+            "at the test set."
+        ),
+    )
     args = parser.parse_args()
+    if args.promote_on == "test" and not args.evaluate_on_test:
+        parser.error("--promote-on=test requires --evaluate-on-test.")
 
     wall_start = time.perf_counter()
 
@@ -98,7 +124,11 @@ def main() -> None:
         print(f"  - [{tag}] {c.describe()}")
     print()
 
-    report = run_loop(splits, candidates=candidates, results_dir=results_dir)
+    report = run_loop(
+        splits, candidates=candidates, results_dir=results_dir,
+        evaluate_on_test=args.evaluate_on_test,
+        promote_on=args.promote_on,
+    )
 
     total_wall = time.perf_counter() - wall_start
     print()

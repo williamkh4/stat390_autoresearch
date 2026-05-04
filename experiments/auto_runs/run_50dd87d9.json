@@ -1,7 +1,7 @@
 {
-  "run_id": "53f0e4f3",
-  "timestamp": "2026-04-26T18:34:56.296274+00:00",
-  "total_runtime_sec": 3.7801028329413384,
+  "run_id": "50dd87d9",
+  "timestamp": "2026-05-04T05:30:56.827976+00:00",
+  "total_runtime_sec": 7.9726534170040395,
   "fit_count": 7,
   "n_candidates": 7,
   "splits_summary": "train: 2015-01-01 -> 2019-04-10 (1561 rows)\nval:   2019-04-11 -> 2019-10-07 (180 rows)\ntest:  2019-10-08 -> 2020-10-06 (365 rows)  [LOCKED]",
@@ -16,7 +16,9 @@
   "improvement_vs_champion": 0.0,
   "env": {
     "python": "3.10.5",
-    "platform": "macOS-26.3.1-arm64-arm-64bit"
+    "platform": "macOS-26.3.1-arm64-arm-64bit",
+    "promote_on": "val",
+    "evaluate_on_test": "True"
   },
   "results": [
     {
@@ -35,11 +37,17 @@
         "rmse_demand": 11880.159242513659,
         "mae_demand": 9762.271280820696
       },
-      "runtime_sec": 0.004328917013481259,
+      "runtime_sec": 0.027430667003500275,
       "n_train": 1561,
       "n_val": 180,
       "n_features": 0,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 207834241.32481366,
+        "rmse_demand": 14416.45730839632,
+        "mae_demand": 12113.128072003377
+      },
+      "n_test": 365
     },
     {
       "name": "seasonal_naive_364",
@@ -57,11 +65,17 @@
         "rmse_demand": 7772.437128382768,
         "mae_demand": 6270.753833333328
       },
-      "runtime_sec": 0.002753624925389886,
+      "runtime_sec": 0.057975457995780744,
       "n_train": 1561,
       "n_val": 180,
       "n_features": 0,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 224849543.5511672,
+        "rmse_demand": 14994.983946345765,
+        "mae_demand": 11030.623232639775
+      },
+      "n_test": 365
     },
     {
       "name": "gbm__cal_temp_apptemp_lag1-7__n300_depth3_lr0.05_sub1.0_losshuber",
@@ -82,14 +96,53 @@
         "rmse_demand": 3351.8584059945797,
         "mae_demand": 2601.408759083337
       },
-      "runtime_sec": 1.8010341660119593,
+      "runtime_sec": 3.3707548750098795,
       "n_train": 1550,
       "n_val": 180,
       "n_features": 23,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 22347679.640604354,
+        "rmse_demand": 4727.333248312874,
+        "mae_demand": 3777.906073932739
+      },
+      "n_test": 365
     },
     {
-      "name": "gbm__cal_temp_lag1-7__n300_depth3_lr0.05_sub1.0_featsqrt",
+      "name": "rf__cal_temp_apptemp_lag1-7_roll7__n100_depthNone_leaf1_featsqrt",
+      "feature_config": {
+        "use_calendar": true,
+        "use_temp": true,
+        "use_apparent_temp": true,
+        "use_rrp": false,
+        "demand_lags": [
+          1,
+          7
+        ],
+        "rolling_windows": [
+          7
+        ]
+      },
+      "is_baseline": false,
+      "metrics": {
+        "mse_demand": 13278501.91391716,
+        "rmse_demand": 3643.9678804727628,
+        "mae_demand": 2858.2744547222196
+      },
+      "runtime_sec": 0.1436279170011403,
+      "n_train": 1550,
+      "n_val": 180,
+      "n_features": 24,
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 25199493.080971837,
+        "rmse_demand": 5019.9096686067805,
+        "mae_demand": 4026.484563698626
+      },
+      "n_test": 365
+    },
+    {
+      "name": "mlp__cal_temp_lag1-7__hls32x16_actrelu_solveradam_alpha0.001_lrinit0.001_iter500",
       "feature_config": {
         "use_calendar": true,
         "use_temp": true,
@@ -103,43 +156,57 @@
       },
       "is_baseline": false,
       "metrics": {
-        "mse_demand": 13154763.327874346,
-        "rmse_demand": 3626.949589927374,
-        "mae_demand": 2791.2991642078764
+        "mse_demand": 1377535182.9213955,
+        "rmse_demand": 37115.161092488815,
+        "mae_demand": 30296.977161413142
       },
-      "runtime_sec": 0.2821717499755323,
+      "runtime_sec": 0.6769307499926072,
       "n_train": 1550,
       "n_val": 180,
       "n_features": 20,
-      "error": null
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 1479695802.157049,
+        "rmse_demand": 38466.81429696315,
+        "mae_demand": 31397.491136748435
+      },
+      "n_test": 365
     },
     {
-      "name": "rf__cal_temp_lag1-7__n200_depthNone_leaf1_featlog2",
+      "name": "ridge__cal_temp_apptemp_lag1-7_roll7__alpha0.1",
       "feature_config": {
         "use_calendar": true,
         "use_temp": true,
-        "use_apparent_temp": false,
+        "use_apparent_temp": true,
         "use_rrp": false,
         "demand_lags": [
           1,
           7
         ],
-        "rolling_windows": []
+        "rolling_windows": [
+          7
+        ]
       },
       "is_baseline": false,
       "metrics": {
-        "mse_demand": 14356032.02453654,
-        "rmse_demand": 3788.9354737889826,
-        "mae_demand": 2933.599398333327
+        "mse_demand": 41122239.36516251,
+        "rmse_demand": 6412.662424076486,
+        "mae_demand": 5095.233789054096
       },
-      "runtime_sec": 0.20184183306992054,
+      "runtime_sec": 0.004779666996910237,
       "n_train": 1550,
       "n_val": 180,
-      "n_features": 20,
-      "error": null
+      "n_features": 24,
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 52890266.04714349,
+        "rmse_demand": 7272.569425391791,
+        "mae_demand": 5730.1396419602925
+      },
+      "n_test": 365
     },
     {
-      "name": "gbm__cal_temp_apptemp__n300_depth3_lr0.05_sub1.0_losshuber",
+      "name": "mlp__cal_temp_apptemp__hls64x32_actrelu_solveradam_alpha0.0001_lrinit0.001_iter500",
       "feature_config": {
         "use_calendar": true,
         "use_temp": true,
@@ -150,37 +217,21 @@
       },
       "is_baseline": false,
       "metrics": {
-        "mse_demand": 19913236.874693986,
-        "rmse_demand": 4462.42499933545,
-        "mae_demand": 3532.7646989373497
+        "mse_demand": 964484423.8526167,
+        "rmse_demand": 31056.14953358862,
+        "mae_demand": 25145.079605707335
       },
-      "runtime_sec": 1.3451072090538219,
+      "runtime_sec": 3.689727042001323,
       "n_train": 1557,
       "n_val": 180,
       "n_features": 21,
-      "error": null
-    },
-    {
-      "name": "rf__cal_temp_apptemp__n200_depthNone_leaf10_featsqrt",
-      "feature_config": {
-        "use_calendar": true,
-        "use_temp": true,
-        "use_apparent_temp": true,
-        "use_rrp": false,
-        "demand_lags": [],
-        "rolling_windows": []
+      "error": null,
+      "test_metrics": {
+        "mse_demand": 969373447.2295263,
+        "rmse_demand": 31134.762681438995,
+        "mae_demand": 25065.698651974042
       },
-      "is_baseline": false,
-      "metrics": {
-        "mse_demand": 25605704.783426095,
-        "rmse_demand": 5060.20797827778,
-        "mae_demand": 3912.5591176134444
-      },
-      "runtime_sec": 0.14127662498503923,
-      "n_train": 1557,
-      "n_val": 180,
-      "n_features": 21,
-      "error": null
+      "n_test": 365
     }
   ]
 }
