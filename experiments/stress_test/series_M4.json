@@ -1,9 +1,9 @@
 {
-  "series": "C",
+  "series": "M4",
   "results": [
     {
-      "series": "C",
-      "label": "C1_lr0.001",
+      "series": "M4",
+      "label": "M4_lr0.001",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
       "n_features": 24,
@@ -13,12 +13,12 @@
       "mse_demand_test": 228061678.87723207,
       "rmse_demand_test": 15101.71112414855,
       "mae_demand_test": 11976.103141843272,
-      "runtime_sec": 4.565827791993797,
+      "runtime_sec": 6.52384445899952,
       "error": ""
     },
     {
-      "series": "C",
-      "label": "C2_lr0.005",
+      "series": "M4",
+      "label": "M4_lr0.005",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
       "n_features": 24,
@@ -28,12 +28,12 @@
       "mse_demand_test": 21940066.313360173,
       "rmse_demand_test": 4684.022450134091,
       "mae_demand_test": 3700.1774741449226,
-      "runtime_sec": 4.3518079169953126,
+      "runtime_sec": 6.9249903749951045,
       "error": ""
     },
     {
-      "series": "C",
-      "label": "C3_lr0.01",
+      "series": "M4",
+      "label": "M4_lr0.01",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
       "n_features": 24,
@@ -43,12 +43,12 @@
       "mse_demand_test": 18937353.75409846,
       "rmse_demand_test": 4351.706993134816,
       "mae_demand_test": 3468.1180754548304,
-      "runtime_sec": 4.740209499999764,
+      "runtime_sec": 6.771985416999087,
       "error": ""
     },
     {
-      "series": "C",
-      "label": "C4_lr0.02",
+      "series": "M4",
+      "label": "M4_lr0.02",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
       "n_features": 24,
@@ -58,12 +58,12 @@
       "mse_demand_test": 20919800.45693475,
       "rmse_demand_test": 4573.816836837123,
       "mae_demand_test": 3656.166810660568,
-      "runtime_sec": 3.2283325829994283,
+      "runtime_sec": 5.104225958995812,
       "error": ""
     },
     {
-      "series": "C",
-      "label": "C5_lr0.05",
+      "series": "M4",
+      "label": "M4_lr0.05",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
       "n_features": 24,
@@ -73,7 +73,7 @@
       "mse_demand_test": 20170309.134277996,
       "rmse_demand_test": 4491.136730748463,
       "mae_demand_test": 3576.4671664056036,
-      "runtime_sec": 3.1328712079994148,
+      "runtime_sec": 4.121528124996985,
       "error": ""
     }
   ]

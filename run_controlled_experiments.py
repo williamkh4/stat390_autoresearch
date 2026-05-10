@@ -10,7 +10,9 @@ fixed. This script runs that sweep and writes its artifacts to
 master log.
 
 Three sweep series (13 experiments, 2 of which are duplicates -- C0 = A4 = B4
-== the current champion -- so 11 distinct fits):
+== the current champion -- so 11 distinct fits). Both seasonal-naive baselines
+are also scored at the start of each run so every controlled bundle is
+self-contained for analysis (val + test reference points).
 
   Series A -- Feature ablation, model fixed at champion's MLP spec.
               A1 cal+lag1-7
@@ -33,8 +35,12 @@ Three sweep series (13 experiments, 2 of which are duplicates -- C0 = A4 = B4
               C4 lr=0.02
               C5 lr=0.05
 
+Each candidate is fit once on train and predictions are evaluated on
+*both* val and test. The test column is reported here for analysis only;
+champion promotion lives in the auto loop and only ever ranks on val.
+
 Every artifact goes into `experiments/controlled/`:
-  controlled_results.csv   one row per experiment (series, label, MSE, runtime)
+  controlled_results.csv   one row per experiment (series, label, val/test MSE/RMSE/MAE, runtime)
   series_<X>.json          per-series detail
   controlled_master.csv    same shape as master_log.csv for re-using analyze tools
 
@@ -56,6 +62,7 @@ import pandas as pd
 from src.autoresearch import (
     Candidate,
     _make_factory,
+    baseline_candidates,
     score_candidate,
 )
 from src.data_loader import load_merged
@@ -156,7 +163,7 @@ def main() -> None:
     print()
 
     all_specs = series_a() + series_b() + series_c()
-    print(f"Running {len(all_specs)} controlled experiments")
+    print(f"Running {len(all_specs)} controlled experiments + 2 baselines")
     print(f"  series A (feature ablation): {sum(1 for s in all_specs if s[0]=='A')} experiments")
     print(f"  series B (model class):      {sum(1 for s in all_specs if s[0]=='B')} experiments")
     print(f"  series C (MLP lr sweep):     {sum(1 for s in all_specs if s[0]=='C')} experiments")
@@ -165,6 +172,52 @@ def main() -> None:
     rows = []
     master_rows = []
     timestamp = pd.Timestamp.utcnow().isoformat()
+
+    # --- Baselines first so every bundle is self-contained ----------------
+    for cand in baseline_candidates():
+        print(f"[baseline] {cand.name}")
+        res = score_candidate(cand, splits, evaluate_on_test=True)
+        if res.error:
+            print(f"  ! ERROR: {res.error}  ({res.runtime_sec:.2f}s)")
+        else:
+            print(f"  val={res.metrics[PRIMARY_METRIC_NAME]:.0f}  "
+                  f"test={res.test_metrics.get(PRIMARY_METRIC_NAME, float('nan')):.0f}  "
+                  f"({res.runtime_sec:.2f}s)")
+        rows.append({
+            "series": "baseline",
+            "label": cand.name,
+            "model_type": "baseline",
+            "feature_config": cand.feature_config.describe(),
+            "n_features": res.n_features,
+            PRIMARY_METRIC_NAME: res.metrics.get(PRIMARY_METRIC_NAME),
+            "rmse_demand": res.metrics.get("rmse_demand"),
+            "mae_demand": res.metrics.get("mae_demand"),
+            "mse_demand_test": res.test_metrics.get(PRIMARY_METRIC_NAME),
+            "rmse_demand_test": res.test_metrics.get("rmse_demand"),
+            "mae_demand_test": res.test_metrics.get("mae_demand"),
+            "runtime_sec": res.runtime_sec,
+            "error": res.error or "",
+        })
+        master_rows.append({
+            "run_id": "controlled",
+            "timestamp_utc": timestamp,
+            "candidate_name": cand.name,
+            "is_baseline": True,
+            PRIMARY_METRIC_NAME: res.metrics.get(PRIMARY_METRIC_NAME),
+            "rmse_demand": res.metrics.get("rmse_demand"),
+            "mae_demand": res.metrics.get("mae_demand"),
+            "mse_demand_test": res.test_metrics.get(PRIMARY_METRIC_NAME),
+            "rmse_demand_test": res.test_metrics.get("rmse_demand"),
+            "mae_demand_test": res.test_metrics.get("mae_demand"),
+            "runtime_sec": res.runtime_sec,
+            "n_features": res.n_features,
+            "n_train": res.n_train,
+            "n_val": res.n_val,
+            "n_test": res.n_test,
+            "error": res.error or "",
+        })
+
+    # --- Controlled candidates -------------------------------------------
     for series, label, fcfg, model_type, kwargs in all_specs:
         cand = Candidate(
             name=f"controlled_{label}",
@@ -173,11 +226,12 @@ def main() -> None:
             is_baseline=False,
         )
         print(f"[{series}] {label}  ({model_type})  features[{fcfg.describe()}]")
-        res = score_candidate(cand, splits)
+        res = score_candidate(cand, splits, evaluate_on_test=True)
         if res.error:
             print(f"  ! ERROR: {res.error}  ({res.runtime_sec:.2f}s)")
         else:
-            print(f"  {PRIMARY_METRIC_NAME}={res.metrics[PRIMARY_METRIC_NAME]:.0f} "
+            print(f"  val={res.metrics[PRIMARY_METRIC_NAME]:.0f}  "
+                  f"test={res.test_metrics.get(PRIMARY_METRIC_NAME, float('nan')):.0f}  "
                   f"({res.runtime_sec:.2f}s, n_features={res.n_features})")
         rows.append({
             "series": series,
@@ -188,6 +242,9 @@ def main() -> None:
             PRIMARY_METRIC_NAME: res.metrics.get(PRIMARY_METRIC_NAME),
             "rmse_demand": res.metrics.get("rmse_demand"),
             "mae_demand": res.metrics.get("mae_demand"),
+            "mse_demand_test": res.test_metrics.get(PRIMARY_METRIC_NAME),
+            "rmse_demand_test": res.test_metrics.get("rmse_demand"),
+            "mae_demand_test": res.test_metrics.get("mae_demand"),
             "runtime_sec": res.runtime_sec,
             "error": res.error or "",
         })
@@ -199,10 +256,14 @@ def main() -> None:
             PRIMARY_METRIC_NAME: res.metrics.get(PRIMARY_METRIC_NAME),
             "rmse_demand": res.metrics.get("rmse_demand"),
             "mae_demand": res.metrics.get("mae_demand"),
+            "mse_demand_test": res.test_metrics.get(PRIMARY_METRIC_NAME),
+            "rmse_demand_test": res.test_metrics.get("rmse_demand"),
+            "mae_demand_test": res.test_metrics.get("mae_demand"),
             "runtime_sec": res.runtime_sec,
             "n_features": res.n_features,
             "n_train": res.n_train,
             "n_val": res.n_val,
+            "n_test": res.n_test,
             "error": res.error or "",
         })
 

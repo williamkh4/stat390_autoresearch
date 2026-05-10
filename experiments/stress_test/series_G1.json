@@ -1,0 +1,80 @@
+{
+  "series": "G1",
+  "results": [
+    {
+      "series": "G1",
+      "label": "G1_cal_lag",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=0 apptemp=0 rrp=0 lags=[1, 7] roll=[]",
+      "n_features": 10,
+      "mse_demand": 19901878.42492449,
+      "rmse_demand": 4461.15214097485,
+      "mae_demand": 3469.3485270689935,
+      "mse_demand_test": 56684601.97610522,
+      "rmse_demand_test": 7528.917716119975,
+      "mae_demand_test": 5512.39173680164,
+      "runtime_sec": 1.2356193340019672,
+      "error": ""
+    },
+    {
+      "series": "G1",
+      "label": "G1_cal_temp_lag",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=0 rrp=0 lags=[1, 7] roll=[]",
+      "n_features": 20,
+      "mse_demand": 13450774.317675062,
+      "rmse_demand": 3667.529729623887,
+      "mae_demand": 2720.674957498612,
+      "mse_demand_test": 26050090.740535766,
+      "rmse_demand_test": 5103.928951360487,
+      "mae_demand_test": 4067.087839710437,
+      "runtime_sec": 1.4119446250042529,
+      "error": ""
+    },
+    {
+      "series": "G1",
+      "label": "G1_cal_temp_apt_lag",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[]",
+      "n_features": 23,
+      "mse_demand": 11375319.691453652,
+      "rmse_demand": 3372.731784689327,
+      "mae_demand": 2611.479726150445,
+      "mse_demand_test": 21444958.271394957,
+      "rmse_demand_test": 4630.8701419274275,
+      "mae_demand_test": 3719.5940702141506,
+      "runtime_sec": 1.4801744159994996,
+      "error": ""
+    },
+    {
+      "series": "G1",
+      "label": "G1_champion_features",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10564233.849169677,
+      "rmse_demand": 3250.266735080319,
+      "mae_demand": 2453.2396369790877,
+      "mse_demand_test": 19593190.395920474,
+      "rmse_demand_test": 4426.419591037487,
+      "mae_demand_test": 3535.0211157823583,
+      "runtime_sec": 1.8095796670022537,
+      "error": ""
+    },
+    {
+      "series": "G1",
+      "label": "G1_full_with_RRP",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=1 lags=[1, 7] roll=[7]",
+      "n_features": 25,
+      "mse_demand": 9607938.304295206,
+      "rmse_demand": 3099.6674505977585,
+      "mae_demand": 2323.4717763427852,
+      "mse_demand_test": 23305544.74518977,
+      "rmse_demand_test": 4827.581666340795,
+      "mae_demand_test": 3883.983566963258,
+      "runtime_sec": 1.9107989999974961,
+      "error": ""
+    }
+  ]
+}

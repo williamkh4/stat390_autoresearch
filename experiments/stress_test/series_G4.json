@@ -1,0 +1,80 @@
+{
+  "series": "G4",
+  "results": [
+    {
+      "series": "G4",
+      "label": "G4_lr0.01",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 15334771.777322732,
+      "rmse_demand": 3915.963709908805,
+      "mae_demand": 2958.249904172979,
+      "mse_demand_test": 31594902.492087822,
+      "rmse_demand_test": 5620.934307754167,
+      "mae_demand_test": 4416.982462277562,
+      "runtime_sec": 1.494677666996722,
+      "error": ""
+    },
+    {
+      "series": "G4",
+      "label": "G4_lr0.03",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 11249258.825511206,
+      "rmse_demand": 3353.991476660489,
+      "mae_demand": 2573.161652731301,
+      "mse_demand_test": 21223312.05427668,
+      "rmse_demand_test": 4606.876605062987,
+      "mae_demand_test": 3658.4888225883487,
+      "runtime_sec": 1.5597874999948544,
+      "error": ""
+    },
+    {
+      "series": "G4",
+      "label": "G4_lr0.05",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10564233.849169677,
+      "rmse_demand": 3250.266735080319,
+      "mae_demand": 2453.2396369790877,
+      "mse_demand_test": 19593190.395920474,
+      "rmse_demand_test": 4426.419591037487,
+      "mae_demand_test": 3535.0211157823583,
+      "runtime_sec": 1.4734079580011894,
+      "error": ""
+    },
+    {
+      "series": "G4",
+      "label": "G4_lr0.1",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 9745508.555286078,
+      "rmse_demand": 3121.7797096025333,
+      "mae_demand": 2375.3788955661867,
+      "mse_demand_test": 18415801.083795793,
+      "rmse_demand_test": 4291.363545983467,
+      "mae_demand_test": 3455.1468153822725,
+      "runtime_sec": 1.4654182920057792,
+      "error": ""
+    },
+    {
+      "series": "G4",
+      "label": "G4_lr0.2",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10158918.860019498,
+      "rmse_demand": 3187.305893700744,
+      "mae_demand": 2522.255586742154,
+      "mse_demand_test": 19073546.18129673,
+      "rmse_demand_test": 4367.327120939846,
+      "mae_demand_test": 3451.321834584231,
+      "runtime_sec": 1.4741557919987827,
+      "error": ""
+    }
+  ]
+}

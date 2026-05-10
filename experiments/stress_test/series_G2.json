@@ -1,0 +1,80 @@
+{
+  "series": "G2",
+  "results": [
+    {
+      "series": "G2",
+      "label": "G2_n100",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 12269499.232628027,
+      "rmse_demand": 3502.784497029189,
+      "mae_demand": 2653.7715072426618,
+      "mse_demand_test": 24503196.304789513,
+      "rmse_demand_test": 4950.070333317448,
+      "mae_demand_test": 3879.3335584694123,
+      "runtime_sec": 0.5065179170051124,
+      "error": ""
+    },
+    {
+      "series": "G2",
+      "label": "G2_n200",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 11129792.908811092,
+      "rmse_demand": 3336.134426070252,
+      "mae_demand": 2519.4871785718833,
+      "mse_demand_test": 21051944.922381677,
+      "rmse_demand_test": 4588.239850136616,
+      "mae_demand_test": 3645.5955753568714,
+      "runtime_sec": 1.0145418750034878,
+      "error": ""
+    },
+    {
+      "series": "G2",
+      "label": "G2_n300",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10564233.849169677,
+      "rmse_demand": 3250.266735080319,
+      "mae_demand": 2453.2396369790877,
+      "mse_demand_test": 19593190.395920474,
+      "rmse_demand_test": 4426.419591037487,
+      "mae_demand_test": 3535.0211157823583,
+      "runtime_sec": 1.5035046670018346,
+      "error": ""
+    },
+    {
+      "series": "G2",
+      "label": "G2_n500",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 9862589.4650877,
+      "rmse_demand": 3140.4759933945843,
+      "mae_demand": 2362.5381953148035,
+      "mse_demand_test": 18251236.248154778,
+      "rmse_demand_test": 4272.146562110759,
+      "mae_demand_test": 3423.4120150681842,
+      "runtime_sec": 2.5420230829986394,
+      "error": ""
+    },
+    {
+      "series": "G2",
+      "label": "G2_n1000",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 9491877.52751947,
+      "rmse_demand": 3080.889080690746,
+      "mae_demand": 2307.5753983339646,
+      "mse_demand_test": 17228500.82995716,
+      "rmse_demand_test": 4150.722928594146,
+      "mae_demand_test": 3314.8056935480845,
+      "runtime_sec": 5.20798816599563,
+      "error": ""
+    }
+  ]
+}

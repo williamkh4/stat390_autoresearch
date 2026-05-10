@@ -10,7 +10,10 @@
       "mse_demand": 41065609.77604744,
       "rmse_demand": 6408.245452231636,
       "mae_demand": 5082.455382025131,
-      "runtime_sec": 0.004027999995741993,
+      "mse_demand_test": 53218668.682362676,
+      "rmse_demand_test": 7295.112657276972,
+      "mae_demand_test": 5748.716249669845,
+      "runtime_sec": 0.004905833993689157,
       "error": ""
     },
     {
@@ -22,7 +25,10 @@
       "mse_demand": 40971563.86261176,
       "rmse_demand": 6400.903363011487,
       "mae_demand": 5073.096479334173,
-      "runtime_sec": 0.09702224998909514,
+      "mse_demand_test": 53183574.09777936,
+      "rmse_demand_test": 7292.706911550701,
+      "mae_demand_test": 5748.865231524463,
+      "runtime_sec": 2.511371208995115,
       "error": ""
     },
     {
@@ -31,10 +37,13 @@
       "model_type": "rf",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
       "n_features": 24,
-      "mse_demand": 14373526.781638894,
-      "rmse_demand": 3791.243434763705,
-      "mae_demand": 2966.7351981476377,
-      "runtime_sec": 0.3506025000096997,
+      "mse_demand": 14373526.781638898,
+      "rmse_demand": 3791.2434347637054,
+      "mae_demand": 2966.7351981476363,
+      "mse_demand_test": 27593743.69098368,
+      "rmse_demand_test": 5252.974746844276,
+      "mae_demand_test": 4172.98328528035,
+      "runtime_sec": 3.4356865829977323,
       "error": ""
     },
     {
@@ -46,7 +55,10 @@
       "mse_demand": 8879955.29711122,
       "rmse_demand": 2979.9253844872055,
       "mae_demand": 2320.079796091271,
-      "runtime_sec": 4.306189499999164,
+      "mse_demand_test": 18937353.75409846,
+      "rmse_demand_test": 4351.706993134816,
+      "mae_demand_test": 3468.1180754548304,
+      "runtime_sec": 4.415491833999113,
       "error": ""
     },
     {
@@ -58,7 +70,10 @@
       "mse_demand": 10564233.849169677,
       "rmse_demand": 3250.266735080319,
       "mae_demand": 2453.2396369790877,
-      "runtime_sec": 1.555070957998396,
+      "mse_demand_test": 19593190.395920474,
+      "rmse_demand_test": 4426.419591037487,
+      "mae_demand_test": 3535.0211157823583,
+      "runtime_sec": 1.5965606660029152,
       "error": ""
     }
   ]

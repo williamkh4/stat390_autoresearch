@@ -1,0 +1,80 @@
+{
+  "series": "M3",
+  "results": [
+    {
+      "series": "M3",
+      "label": "M3_alpha1e-05",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8885242.82721295,
+      "rmse_demand": 2980.812444152257,
+      "mae_demand": 2326.057591620878,
+      "mse_demand_test": 18979898.16778676,
+      "rmse_demand_test": 4356.592495034021,
+      "mae_demand_test": 3469.7575861647765,
+      "runtime_sec": 11.42989466599829,
+      "error": ""
+    },
+    {
+      "series": "M3",
+      "label": "M3_alpha0.0001",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8879522.90643951,
+      "rmse_demand": 2979.8528330170116,
+      "mae_demand": 2324.2951572204233,
+      "mse_demand_test": 18924287.150117792,
+      "rmse_demand_test": 4350.205414703746,
+      "mae_demand_test": 3468.6301786451972,
+      "runtime_sec": 10.081703916999686,
+      "error": ""
+    },
+    {
+      "series": "M3",
+      "label": "M3_alpha0.001",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8879955.29711122,
+      "rmse_demand": 2979.9253844872055,
+      "mae_demand": 2320.079796091271,
+      "mse_demand_test": 18937353.75409846,
+      "rmse_demand_test": 4351.706993134816,
+      "mae_demand_test": 3468.1180754548304,
+      "runtime_sec": 9.041734416998224,
+      "error": ""
+    },
+    {
+      "series": "M3",
+      "label": "M3_alpha0.01",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8860173.572764367,
+      "rmse_demand": 2976.604369539957,
+      "mae_demand": 2319.423488636415,
+      "mse_demand_test": 18947632.07707342,
+      "rmse_demand_test": 4352.8877859500835,
+      "mae_demand_test": 3469.0491769034925,
+      "runtime_sec": 11.987998666998465,
+      "error": ""
+    },
+    {
+      "series": "M3",
+      "label": "M3_alpha0.1",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8846982.671493536,
+      "rmse_demand": 2974.387780954853,
+      "mae_demand": 2319.9014779603453,
+      "mse_demand_test": 19005173.12390259,
+      "rmse_demand_test": 4359.492301163358,
+      "mae_demand_test": 3474.482653979638,
+      "runtime_sec": 15.607296791997214,
+      "error": ""
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 {
-  "series": "A",
+  "series": "M1",
   "results": [
     {
-      "series": "A",
-      "label": "A1_cal_lag",
+      "series": "M1",
+      "label": "M1_cal_lag",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=0 apptemp=0 rrp=0 lags=[1, 7] roll=[]",
       "n_features": 10,
@@ -13,12 +13,12 @@
       "mse_demand_test": 57972019.144591145,
       "rmse_demand_test": 7613.935851095092,
       "mae_demand_test": 5678.655501615857,
-      "runtime_sec": 9.456043582998973,
+      "runtime_sec": 12.123684500002128,
       "error": ""
     },
     {
-      "series": "A",
-      "label": "A2_cal_temp_lag",
+      "series": "M1",
+      "label": "M1_cal_temp_lag",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=0 rrp=0 lags=[1, 7] roll=[]",
       "n_features": 20,
@@ -28,12 +28,12 @@
       "mse_demand_test": 22220155.480616834,
       "rmse_demand_test": 4713.825991762618,
       "mae_demand_test": 3664.6891870640306,
-      "runtime_sec": 6.32862125000247,
+      "runtime_sec": 5.249169458002143,
       "error": ""
     },
     {
-      "series": "A",
-      "label": "A3_+apparent_temp",
+      "series": "M1",
+      "label": "M1_cal_temp_apt_lag",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[]",
       "n_features": 23,
@@ -43,12 +43,12 @@
       "mse_demand_test": 19863511.916952435,
       "rmse_demand_test": 4456.849999377636,
       "mae_demand_test": 3542.4101773979705,
-      "runtime_sec": 10.357466875000682,
+      "runtime_sec": 8.34441450000304,
       "error": ""
     },
     {
-      "series": "A",
-      "label": "A4_+rolling7",
+      "series": "M1",
+      "label": "M1_champion_features",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
       "n_features": 24,
@@ -58,12 +58,12 @@
       "mse_demand_test": 18937353.75409846,
       "rmse_demand_test": 4351.706993134816,
       "mae_demand_test": 3468.1180754548304,
-      "runtime_sec": 8.20541137499822,
+      "runtime_sec": 9.44307120799931,
       "error": ""
     },
     {
-      "series": "A",
-      "label": "A5_+RRP_full",
+      "series": "M1",
+      "label": "M1_full_with_RRP",
       "model_type": "mlp",
       "feature_config": "cal=1 temp=1 apptemp=1 rrp=1 lags=[1, 7] roll=[7]",
       "n_features": 25,
@@ -73,7 +73,7 @@
       "mse_demand_test": 27719174.383189887,
       "rmse_demand_test": 5264.900225378434,
       "mae_demand_test": 4274.217462769563,
-      "runtime_sec": 6.478355750004994,
+      "runtime_sec": 10.27168320799683,
       "error": ""
     }
   ]
