@@ -101,6 +101,10 @@ the direction of the gradient.
 
 ```bash
 python run_controlled_experiments.py
+python build_experiment_bundle.py \
+    --results-csv experiments/controlled/controlled_results.csv \
+    --out-dir analysis/controlled_bundle \
+    --title "Controlled Experiments (A/B/C)"
 ```
 
 Output:
@@ -110,7 +114,21 @@ experiments/controlled/controlled_master.csv      # master_log shape, reusable
 experiments/controlled/series_A.json              # per-series detail
 experiments/controlled/series_B.json
 experiments/controlled/series_C.json
+analysis/controlled_bundle/INDEX.md               # bundle table of contents
+analysis/controlled_bundle/metric_trajectory.png  # val + test RMSE/MAE plot
+analysis/controlled_bundle/keep_discard_crash.md  # triage list
+analysis/controlled_bundle/best_vs_baseline.md    # best vs baseline summary
+analysis/controlled_bundle/what_worked_memo.md    # per-series narrative
 ```
+
+Both seasonal-naive baselines are scored at the start of each
+`run_controlled_experiments.py` invocation, so every controlled bundle
+is self-contained for analysis (validation + test reference points are
+present in the CSV alongside the experiment rows).
+
+A parallel framework-focused stress test for MLP and GBM ships alongside
+the A/B/C set; see `STRESS_TEST.md` for the design and
+`analysis/stress_test_bundle/` for its deliverables.
 
 ---
 

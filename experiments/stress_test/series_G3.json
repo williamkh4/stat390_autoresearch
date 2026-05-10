@@ -1,0 +1,80 @@
+{
+  "series": "G3",
+  "results": [
+    {
+      "series": "G3",
+      "label": "G3_depth2",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 11997299.93536717,
+      "rmse_demand": 3463.711872452322,
+      "mae_demand": 2714.0702237904607,
+      "mse_demand_test": 20853133.11509524,
+      "rmse_demand_test": 4566.5230882034575,
+      "mae_demand_test": 3630.815017814978,
+      "runtime_sec": 0.9964038329999312,
+      "error": ""
+    },
+    {
+      "series": "G3",
+      "label": "G3_depth3",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10564233.849169677,
+      "rmse_demand": 3250.266735080319,
+      "mae_demand": 2453.2396369790877,
+      "mse_demand_test": 19593190.395920474,
+      "rmse_demand_test": 4426.419591037487,
+      "mae_demand_test": 3535.0211157823583,
+      "runtime_sec": 1.5799220420012716,
+      "error": ""
+    },
+    {
+      "series": "G3",
+      "label": "G3_depth4",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10269728.274401145,
+      "rmse_demand": 3204.641676443896,
+      "mae_demand": 2443.1889318776193,
+      "mse_demand_test": 19481864.939712107,
+      "rmse_demand_test": 4413.826564299067,
+      "mae_demand_test": 3507.7382962095717,
+      "runtime_sec": 1.99360266700387,
+      "error": ""
+    },
+    {
+      "series": "G3",
+      "label": "G3_depth6",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10061524.23608758,
+      "rmse_demand": 3171.990579444961,
+      "mae_demand": 2435.353315034216,
+      "mse_demand_test": 19806526.9414404,
+      "rmse_demand_test": 4450.452442329925,
+      "mae_demand_test": 3524.2866875958885,
+      "runtime_sec": 2.921052249999775,
+      "error": ""
+    },
+    {
+      "series": "G3",
+      "label": "G3_depth8",
+      "model_type": "gbm",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 11637721.505571038,
+      "rmse_demand": 3411.410486231617,
+      "mae_demand": 2717.2330469440644,
+      "mse_demand_test": 21170165.675171185,
+      "rmse_demand_test": 4601.104832012762,
+      "mae_demand_test": 3631.5150439614326,
+      "runtime_sec": 3.8873611250019167,
+      "error": ""
+    }
+  ]
+}

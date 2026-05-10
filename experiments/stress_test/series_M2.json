@@ -1,0 +1,80 @@
+{
+  "series": "M2",
+  "results": [
+    {
+      "series": "M2",
+      "label": "M2_hls16",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 2535386499.427848,
+      "rmse_demand": 50352.62157453024,
+      "mae_demand": 41912.84274979332,
+      "mse_demand_test": 2635997626.853109,
+      "rmse_demand_test": 51341.96750079908,
+      "mae_demand_test": 44310.94763231182,
+      "runtime_sec": 0.5034748340040096,
+      "error": ""
+    },
+    {
+      "series": "M2",
+      "label": "M2_hls32x16",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 10974199.691702504,
+      "rmse_demand": 3312.7329641404094,
+      "mae_demand": 2557.0227792145242,
+      "mse_demand_test": 22236381.424068674,
+      "rmse_demand_test": 4715.5467789079,
+      "mae_demand_test": 3694.141385502743,
+      "runtime_sec": 0.728008709003916,
+      "error": ""
+    },
+    {
+      "series": "M2",
+      "label": "M2_hls64x32",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 9085138.62515555,
+      "rmse_demand": 3014.1563703888273,
+      "mae_demand": 2284.325082993632,
+      "mse_demand_test": 19301918.328017123,
+      "rmse_demand_test": 4393.394852277351,
+      "mae_demand_test": 3452.0900889889567,
+      "runtime_sec": 5.669820458002505,
+      "error": ""
+    },
+    {
+      "series": "M2",
+      "label": "M2_hls128x64",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8879955.29711122,
+      "rmse_demand": 2979.9253844872055,
+      "mae_demand": 2320.079796091271,
+      "mse_demand_test": 18937353.75409846,
+      "rmse_demand_test": 4351.706993134816,
+      "mae_demand_test": 3468.1180754548304,
+      "runtime_sec": 8.057400249999773,
+      "error": ""
+    },
+    {
+      "series": "M2",
+      "label": "M2_hls256x128x64",
+      "model_type": "mlp",
+      "feature_config": "cal=1 temp=1 apptemp=1 rrp=0 lags=[1, 7] roll=[7]",
+      "n_features": 24,
+      "mse_demand": 8874826.95068919,
+      "rmse_demand": 2979.0647778605266,
+      "mae_demand": 2299.1935475077776,
+      "mse_demand_test": 18832465.670303296,
+      "rmse_demand_test": 4339.638887085341,
+      "mae_demand_test": 3444.1990681719085,
+      "runtime_sec": 13.720726915998966,
+      "error": ""
+    }
+  ]
+}

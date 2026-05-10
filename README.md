@@ -324,25 +324,56 @@ estimator a little less held-out). Pass `--force` to override.
 ## Analysis & deliverables
 
 The auto-driving loop is for *exploration*. For *interpretation*, the
-project ships five complementary artifacts, all checked into the repo:
+project ships several complementary artifacts, all checked into the repo:
 
 | artifact | path | what it is |
 |---|---|---|
 | Controlled experiment design | `EXPERIMENTS.md` | Three series (feature ablation / model class ablation / MLP lr sweep) where one variable changes per run and everything else is held fixed. |
-| Controlled experiment runner | `run_controlled_experiments.py` | Executes the controlled set; writes to `experiments/controlled/`. |
+| Controlled experiment runner | `run_controlled_experiments.py` | Executes the controlled set; writes to `experiments/controlled/`. Captures val + test metrics and both seasonal-naive baselines. |
+| Stress-test design | `STRESS_TEST.md` | Targeted M1–M4 / G1–G4 sweeps for the MLP and GBM frameworks (features + the most performance-affecting hyperparameters within each framework). |
+| Stress-test runner | `run_stress_test.py` | Executes the MLP/GBM stress test; writes to `experiments/stress_test/`. |
+| Bundle generator | `build_experiment_bundle.py` | Converts any controlled-style results CSV into a five-deliverable analysis bundle: log, trajectory plot, keep/discard/crash, best-vs-baseline, "what worked" memo. |
+| Controlled bundle | `analysis/controlled_bundle/` | Bundle for the A/B/C controlled experiments. |
+| Stress-test bundle | `analysis/stress_test_bundle/` | Bundle for the M/G stress-test experiments. |
 | Result matrix | `analysis/result_matrix.{md,csv}` | Best validation MSE for each (feature_preset × model_type) combination across all auto-runs. |
 | Metric-over-time plot | `analysis/metric_over_time.png` | Champion-after-run line + best-of-run line + per-candidate scatter, with baseline references. Generate with `python plot_metric_over_time.py`. |
 | Error taxonomy | `ERROR_TAXONOMY.md` | Every issue encountered, categorised under Signal Failure / Code Instability / Evaluation Leakage / Agent Misbehavior. |
 | Failure analysis memo | `FAILURE_ANALYSIS_MEMO.docx` | One-page Word memo on the dominant failure mode (no statistical noise floor) and a five-step plan to fix it. Editable for submission; convert to PDF via Word's built-in export. Regenerate with `python build_failure_memo.py`. |
 
-These regenerate cheaply from `experiments/auto_runs/master_log.csv`,
-so re-running them after each new auto-iteration keeps the analysis
-in sync:
+These regenerate cheaply from the corresponding results CSVs, so re-running
+them after each new iteration keeps the analysis in sync:
 
 ```bash
+# Cross-run analysis from auto_runs/master_log.csv
 python plot_metric_over_time.py     # refreshes analysis/metric_over_time.png
 python build_result_matrix.py       # refreshes analysis/result_matrix.{csv,md}
+
+# Bundle regeneration (run after re-running either experiment set)
+python run_controlled_experiments.py
+python build_experiment_bundle.py \
+    --results-csv experiments/controlled/controlled_results.csv \
+    --out-dir analysis/controlled_bundle \
+    --title "Controlled Experiments (A/B/C)"
+
+python run_stress_test.py
+python build_experiment_bundle.py \
+    --results-csv experiments/stress_test/stress_results.csv \
+    --out-dir analysis/stress_test_bundle \
+    --title "MLP/GBM Stress Test (M1-M4, G1-G4)"
 ```
+
+### Bundle structure
+
+Each `analysis/*_bundle/` folder is a self-contained five-deliverable
+package:
+
+| # | File | What it answers |
+|---|---|---|
+| 1 | `INDEX.md` | What's in the bundle, the per-experiment table |
+| 2 | `metric_trajectory.png` | How val + test RMSE/MAE move across the sweep, vs. baselines |
+| 3 | `keep_discard_crash.md` | For every experiment: keep / discard / crash, with reason |
+| 4 | `best_vs_baseline.md` | The single best experiment side-by-side with the baselines |
+| 5 | `what_worked_memo.md` | Per-series narrative + per-framework summary |
 
 ---
 
