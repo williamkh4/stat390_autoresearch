@@ -52,6 +52,16 @@ def main() -> None:
     df = df[df["error"].fillna("") == ""].copy()
     df["model_type"] = df["candidate_name"].str.split("__").str[0]
 
+    # Iter-2: when walk-forward columns are present, prefer the mean for
+    # plotting; the deterministic point-estimate column is populated with
+    # the mean in iter-2 anyway, so both columns plot the same numbers.
+    # Iter-1 master_logs continue to plot fine off `mse_demand`.
+    metric_col = ("mse_demand_mean"
+                  if "mse_demand_mean" in df.columns
+                  and df["mse_demand_mean"].notna().any()
+                  else "mse_demand")
+    std_col = "mse_demand_std" if "mse_demand_std" in df.columns else None
+
     # Order runs chronologically and assign an integer index for plotting.
     run_order = (
         df.groupby("run_id")["timestamp_utc"].min()
@@ -62,7 +72,7 @@ def main() -> None:
     # Per-run aggregates
     per_run = (
         df.groupby("run_idx")
-          .agg(best_of_run=("mse_demand", "min"),
+          .agg(best_of_run=(metric_col, "min"),
                run_id=("run_id", "first"))
           .reset_index()
           .sort_values("run_idx")
@@ -71,7 +81,7 @@ def main() -> None:
 
     # Reference baselines (last value in master log; they're constant)
     base_mask = df["candidate_name"].isin(["seasonal_naive_7", "seasonal_naive_364"])
-    baselines = df[base_mask].groupby("candidate_name")["mse_demand"].first().to_dict()
+    baselines = df[base_mask].groupby("candidate_name")[metric_col].first().to_dict()
 
     # ----- Plot ---------------------------------------------------------------
     fig, ax = plt.subplots(figsize=(11, 6))
@@ -87,9 +97,15 @@ def main() -> None:
     }
     cand = df[~base_mask].copy()
     for mt, sub in cand.groupby("model_type"):
-        ax.scatter(sub["run_idx"], sub["mse_demand"],
+        ax.scatter(sub["run_idx"], sub[metric_col],
                    s=20, alpha=0.45, label=mt,
                    color=color_map.get(mt, "#888"))
+        # When walk-forward std is available, add error bars so readers see
+        # the noise band on each candidate, not just the mean.
+        if std_col and std_col in sub.columns and sub[std_col].notna().any():
+            ax.errorbar(sub["run_idx"], sub[metric_col], yerr=sub[std_col],
+                        fmt="none", ecolor=color_map.get(mt, "#888"),
+                        alpha=0.25, capsize=2)
 
     # "Best of each run" (orange line) and running champion (black line).
     ax.plot(per_run["run_idx"], per_run["best_of_run"],
@@ -111,7 +127,10 @@ def main() -> None:
 
     ax.set_yscale("log")
     ax.set_xlabel("AutoResearch run (chronological order)")
-    ax.set_ylabel("validation MSE of demand  (log scale)")
+    if metric_col == "mse_demand_mean":
+        ax.set_ylabel("walk-forward validation MSE (mean ± std, log scale)")
+    else:
+        ax.set_ylabel("validation MSE of demand  (log scale)")
     n_runs = len(per_run)
     n_cands = len(cand)
     ax.set_title(

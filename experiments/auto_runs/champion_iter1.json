@@ -1,0 +1,23 @@
+{
+  "name": "mlp__cal_temp_apptemp_lag1-7_roll7__hls128x64_actrelu_solveradam_alpha0.001_lrinit0.01_iter500",
+  "metric": 8879955.29711122,
+  "metric_source": "val",
+  "val_metric": 8879955.29711122,
+  "test_metric": 18937353.75409846,
+  "run_id": "b059464d",
+  "timestamp_utc": "2026-05-04T06:35:50.213580+00:00",
+  "feature_config": {
+    "use_calendar": true,
+    "use_temp": true,
+    "use_apparent_temp": true,
+    "use_rrp": false,
+    "demand_lags": [
+      1,
+      7
+    ],
+    "rolling_windows": [
+      7
+    ]
+  },
+  "is_baseline": false
+}
