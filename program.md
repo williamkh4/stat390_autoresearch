@@ -5,7 +5,7 @@
 | Project | Electricity Grid Demand Forecasting with Weather-Augmented Price Signals |
 | Region | Victoria, Australia |
 | Time resolution | Daily |
-| Spec version | v0.1 (iteration 1, single-stage) |
+| Spec version | v0.2 (iteration 2, two-stage + walk-forward) |
 | Owner | Will Huang |
 | Source brief | STAT 390 Week 1 Project Charter |
 
@@ -13,14 +13,51 @@
 
 ## 1. Research question
 
-> Does incorporating apparent temperature and predicted electricity price (RRP)
-> improve the accuracy of daily electricity demand forecasting compared to
-> using standard temperature and historical demand alone?
-
-This iteration tests the apparent-temperature half of the question with a
-single-stage demand model. The two-stage RRP → demand variant is deferred
-to a later iteration; in the current iteration RRP enters as an *observed*
-covariate where used, which is acknowledged as optimistic (see §10).
+> **Research question (v0.2).** Given iteration 1's finding that
+> apparent-temperature features and demand lags alone yield a validation
+> MSE of ~9M on Victoria daily electricity demand (an 81% reduction
+> relative to the strongest seasonal-naive baseline), this iteration
+> tests whether a **two-stage pipeline** — predicting daily RRP from
+> weather + calendar features in stage 1, then using the *predicted* RRP
+> as an input to the demand model in stage 2 — produces a forecast MSE
+> that is (a) lower than the single-stage temperature+lags baseline by a
+> margin larger than the bootstrap-derived noise floor, and (b) survives
+> a sensitivity check against a 365-day pre-COVID test window.
+>
+> **Validation protocol.** Expanding-window walk-forward cross-validation.
+> Per fold: `val_size = 180` days, `step = 90` days (quarterly cadence),
+> `min_train_size = 730` days (≥1 annual cycle), train expands with each
+> fold, never rolls. Approximately 10 folds span 2017-Q1 through 2019-Q3.
+> Adjacent val windows overlap by 50%; the leaderboard reports `mean ± std`
+> across all 10 folds AND `std_indep` across the 5 non-overlapping subset
+> (every-other fold). Champion promotion is noise-aware: a challenger is
+> promoted only if `mean_challenger + std_challenger
+> < mean_champion − std_champion`.
+>
+> **Test-set protocol.** The locked 365-day test window
+> (2019-10-08 → 2020-10-06) is evaluated **exactly once** at the end of
+> iteration 2, via `run_test_evaluation.py`. A 365-day **pre-COVID
+> sensitivity** window (the 365 days ending 2019-10-07) is also evaluated
+> once, alongside the locked test, to separate "model quality" from
+> "COVID-era regime change."
+>
+> **Project contribution.** Three claims this iteration commits to
+> producing:
+> 1. **An honest H2 test.** Whether *predicted* RRP — via a two-stage
+>    pipeline — adds signal beyond temperature + demand history. Either
+>    direction (supported / null / rejected) is a publishable result; an
+>    explicit minimum-effect-size of 5% relative MSE reduction is
+>    required to call H2 "supported."
+> 2. **A methodology artifact.** An auto-research framework with
+>    walk-forward CV, bootstrap noise floor, integrated four-category
+>    error taxonomy (Signal / Code / Eval-Leakage / Agent), and a
+>    self-driving candidate generator with history-aware dedup.
+>    Demonstrates iterative model selection on a small dataset without
+>    overfitting comparisons.
+> 3. **A distribution-shift finding.** Quantification of the ~3×
+>    degradation between val MSE and locked-test MSE (deterministic for
+>    the seasonal-naive baselines), with the pre-COVID sensitivity
+>    readout decomposing "model quality" from "COVID regime change."
 
 ---
 
@@ -28,34 +65,63 @@ covariate where used, which is acknowledged as optimistic (see §10).
 
 1. **H1 (apparent temperature):** Including Open-Meteo's apparent-temperature
    features lowers validation MSE compared to the same model with only
-   standard temperature features.
-2. **H2 (price signal):** Adding RRP as a feature lowers validation MSE.
-   Charter flags this as a weak-signal risk; a true test requires the
-   two-stage pipeline (deferred).
+   standard temperature features. **Status: supported in iter-1; locked,
+   not retested.** Iter-1 champion uses apparent_temp; ablation pair A2→A3
+   in the controlled-experiments bundle shows the gain is real (val MSE
+   10.07M → 9.49M, ~5.7% reduction).
+2. **H2 (price signal):** Adding *predicted* RRP — via the two-stage
+   pipeline in `src/predict_rrp.py` — lowers validation MSE versus the
+   same model without RRP. **Status: primary iter-2 work; minimum
+   effect size 5% relative MSE reduction is required to call H2
+   "supported."** Iter-1's `full` preset used observed RRP and was leaky
+   (L1 in `ERROR_TAXONOMY.md`); the predicted-RRP variant in iter-2
+   replaces it and is testable cleanly.
 3. **H3 (non-linearity):** Tree ensembles outperform linear models even
    with the same feature set, because demand-temperature interactions are
    non-linear (e.g., U-shaped: heating below ~12 °C, cooling above ~24 °C).
+   **Status: supported in iter-1; locked, not retested.** Iter-1 result
+   matrix shows trees beating linear by ~4× across every preset (best
+   MLP 8.88M vs best Ridge 41.12M); linear models are retained in iter-2
+   only as sanity-only rows.
+4. **M1 (methodology, new):** Walk-forward fold MSEs cluster within a
+   band predicted by the bootstrap noise floor — i.e. our reported
+   `std` is calibrated. If the across-run variance of the champion's
+   per-fold MSEs is much larger than the within-run `std`, then `std`
+   is under-reporting the true noise and the noise-aware promotion rule
+   is mis-tuned. M1 is an internal calibration check, not a research
+   question about demand forecasting.
 
 ---
 
 ## 3. Scope
 
-**In scope (this iteration):**
-- Single-stage daily demand prediction.
-- Feature engineering: calendar, temperature, apparent temperature, RRP
-  (observed), demand lags 1 and 7, 7-day rolling mean.
-- Models: seasonal naive baselines, Ridge, Random Forest, Gradient Boosting,
-  numpy OLS variants for ablation.
-- AutoResearch loop with cross-run leaderboard and champion tracking.
+**In scope (iter-2):**
+- **Two-stage RRP → demand pipeline.** Stage-1 (`src/predict_rrp.py`) fits
+  a GBM on weather + calendar + RRP lags to produce a predicted RRP
+  column; stage-2 (the demand model) consumes that column via
+  `FeatureConfig.use_predicted_rrp`. No demand features in stage 1.
+- **Walk-forward cross-validation.** Expanding-window, 10 folds,
+  val_size=180, step=90, min_train=730. `mean ± std` reporting per
+  metric; `std_indep` reported across the 5 non-overlapping folds.
+- **Bootstrap noise floor.** The per-fold `std` plays the role iter-1
+  lacked (deterministic `std=0` made every leaderboard gap look real).
+  All iter-2 comparisons are noise-aware.
+- **Noise-aware champion promotion** — see §5 row "Champion promotion
+  rule."
+- **Pre-COVID sensitivity readout** (one-shot, alongside the locked test).
+- **Search-space narrowing** based on iter-1 result-matrix evidence — see
+  `ABLATION_TABLES.md`.
 
-**Out of scope (this iteration, deferred to later):**
-- Two-stage RRP → demand pipeline.
+**Out of scope (iter-2, deferred):**
+- Deep learning beyond MLP (LSTM, Transformer).
 - Sub-daily resolution (intraday, half-hourly).
-- Deep learning models.
 - Probabilistic forecasts / prediction intervals.
-- Final test-set evaluation. The 365-day test set is locked and untouched
-  until at least one model demonstrably beats the strong baseline on
-  validation by a meaningful margin.
+- Stage-1 RRP model-class sweeps (use the GBM default; if it
+  underperforms, that's a finding, not a sub-project).
+- A separate generalization-under-COVID study beyond the single
+  pre-COVID sensitivity readout.
+- Repeated random search over the full 494-candidate space; iter-2's
+  search space is the narrowed primary set in `ABLATION_TABLES.md`.
 
 ---
 
@@ -83,11 +149,16 @@ invalidates prior `master_log.csv` entries and resets the champion.
 | Target | Daily `demand` | `src/features.py::TARGET_COL` |
 | Validation metric | MSE of demand | `src/metrics.py::PRIMARY_METRIC_NAME` |
 | Test set | Final 365 days, never touched in the loop | `src/split.py::TEST_DAYS` |
-| Validation set | 180 days immediately before test | `src/split.py::VAL_DAYS` |
+| Validation set (iter-1 holdout) | 180 days immediately before test | `src/split.py::VAL_DAYS` |
 | Train set | All earlier rows | derived |
 | Split style | Strict chronological slice | `src/split.py::make_splits` |
 | Baselines | `seasonal_naive_7` (weekly floor) and `seasonal_naive_364` (yearly floor; 52-week aligned) | `src/autoresearch.py::baseline_candidates` |
 | Reference for new candidates | Current champion in `experiments/auto_runs/champion.json`, auto-promoted on improvement | `src/autoresearch.py::run_loop` |
+| **Validation protocol (iter-2)** | Walk-forward expanding-window CV: val_size=180, step=90, min_train=730 (~10 folds, train expands, never rolls) | `src/split.py::make_walk_forward_folds` |
+| **Champion promotion rule (iter-2)** | Noise-aware: `mean_challenger + std_challenger < mean_champion − std_champion` | `src/autoresearch.py::_noise_aware_promote` |
+| **Two-stage RRP (iter-2)** | Stage-1 RRP predictor (GBM-300/3/0.05) fit on weather + calendar + RRP lags only (no demand features); output column `rrp_predicted` consumed by stage-2 demand model via `FeatureConfig.use_predicted_rrp = True` | `src/predict_rrp.py` |
+| **Observed-RRP feature (iter-2)** | **Deprecated.** Existing candidates using observed RRP are marked `uses_observed_rrp=True` in master_log and excluded from new champion comparisons. | `src/features.py::FeatureConfig.use_rrp` |
+| **Pre-COVID sensitivity (iter-2)** | One-shot 365-day window ending one day before locked test, evaluated alongside the locked test in `run_test_evaluation.py --pre-covid-sensitivity` | `src/split.py::pre_covid_test_window` |
 
 ---
 
@@ -116,17 +187,31 @@ the panel are dropped.
 
 ## 7. Success criteria
 
-1. **Floor:** at least one non-baseline candidate produces validation MSE
-   strictly below the stronger baseline (`seasonal_naive_364`,
-   MSE ≈ 60.4 M). A model that doesn't beat trivial yearly recall is not
-   adding research value.
-2. **H1 acceptance:** A direct ablation pair (same model class, same other
-   features) shows that adding apparent-temperature features lowers MSE by
-   a margin larger than run-to-run noise (estimated via repeated runs of
-   the same candidate).
-3. **Final test evaluation** (deferred): the chosen champion's MSE on the
-   locked test set is reported once, alongside the validation MSE, before
-   the project closes. No test-set tuning.
+1. **Floor (iter-2):** at least one non-baseline candidate satisfies
+   `mean − std  <  seasonal_naive_364.mean − seasonal_naive_364.std`
+   under the walk-forward protocol. A model that doesn't beat trivial
+   yearly recall under the noise-aware rule is not adding research
+   value.
+2. **H1 acceptance:** Direct ablation pair (same model class, same other
+   features) shows that adding apparent-temperature features lowers
+   walk-forward MSE by a margin larger than the per-fold std.
+   **Status: met in iter-1's controlled experiments; locked, not retested.**
+3. **H2 acceptance (iter-2 primary criterion):** the predicted-RRP
+   variant of the current champion beats the no-RRP variant of the same
+   champion by **≥5% relative MSE reduction** *and* the noise-aware
+   rule fires:
+   `mean_pred-rrp + std_pred-rrp < mean_no-rrp − std_no-rrp`.
+   Anything weaker is reported as "H2 not supported under the iter-2
+   minimum-effect-size criterion."
+4. **M1 acceptance (methodology):** for the iter-1 champion replayed
+   under walk-forward, the across-run variance of the per-fold mean MSE
+   is comparable to (or smaller than) the typical within-run `std`.
+   Large violations mean `std` is under-reporting noise and the
+   promotion rule needs tightening before any H2 claim is reportable.
+5. **Final test evaluation:** the iter-2 champion's MSE on the locked
+   test set is reported **once**, alongside (a) the walk-forward `mean ± std`
+   on validation and (b) the pre-COVID sensitivity readout, before the
+   project closes. No test-set tuning.
 
 ---
 
@@ -169,9 +254,11 @@ the cross-run master log.
 - [x] M2 — AutoResearch loop runnable in one command, runtime + budget tracked.
 - [x] M3 — Cross-run master log + auto-promoted champion.
 - [x] M4 — At least 5 dry-run experiments logged; ablation visible across runs (see §11).
-- [ ] M5 — At least one non-baseline candidate beats `seasonal_naive_364` by a meaningful margin.
-- [ ] M6 — Two-stage RRP → demand pipeline added as a candidate; H2 tested without the observed-RRP leak.
-- [x] M7 — Final test-set evaluation of the champion. Runner is `run_test_evaluation.py` (refits the champion on train+val, predicts on the locked test set, also evaluates both seasonal naives on test for context). Spend the test set deliberately: the script refuses repeat evaluations of the same champion by default. See FAILURE_ANALYSIS_MEMO.docx for the recommendation to add a noise floor (L4) before reading the test number as definitive.
+- [x] M5 — At least one non-baseline candidate beats `seasonal_naive_364` by a meaningful margin (iter-1 champion: val MSE 8.88M vs baseline 60.41M, ~85% reduction).
+- [x] M6a — Walk-forward CV + bootstrap noise floor + noise-aware champion promotion shipped (`src/split.py::make_walk_forward_folds`, `src/autoresearch.py::_noise_aware_promote`). *(Iter-2 Week 1)*
+- [ ] M6b — Two-stage RRP → demand pipeline run end-to-end; H2 verdict (supported / not supported under the 5% effect-size criterion) reported. *(Iter-2 Week 2)*
+- [x] M7 — Final test-set evaluation of the champion. Runner is `run_test_evaluation.py` (refits the champion on train+val, predicts on the locked test set, also evaluates both seasonal naives on test for context). Spend the test set deliberately: the script refuses repeat evaluations of the same champion by default. See `FAILURE_ANALYSIS_MEMO.docx` for the recommendation to add a noise floor (L4) before reading the test number as definitive — iter-2 satisfies this via walk-forward `mean ± std`.
+- [ ] M8 — Two-stage pipeline tested end-to-end on locked test + pre-COVID sensitivity window. H2 verdict reported with both readouts. Distribution-shift finding (test_minus_pre_covid) reported as the iter-2 closing artifact. *(Iter-2 Week 2)*
 
 ---
 

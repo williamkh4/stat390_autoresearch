@@ -39,12 +39,18 @@ def main() -> None:
     df["model_type"] = df["candidate_name"].str.split("__").str[0]
     df["feature_preset"] = df["candidate_name"].str.split("__").str[1]
 
+    # Iter-2: prefer the walk-forward mean column if present. Falls back to
+    # the legacy point estimate so old iter-1 master_logs still produce a
+    # matrix. The legacy `mse_demand` column is populated with the mean in
+    # iter-2 anyway, so this is mostly a clarity rename for the readout.
+    metric_col = "mse_demand_mean" if "mse_demand_mean" in df.columns and df["mse_demand_mean"].notna().any() else "mse_demand"
+
     base_mask = df["candidate_name"].isin(["seasonal_naive_7", "seasonal_naive_364"])
-    baselines = df[base_mask].groupby("candidate_name")["mse_demand"].first().to_dict()
+    baselines = df[base_mask].groupby("candidate_name")[metric_col].first().to_dict()
     body = df[~base_mask].copy()
 
-    best = (body.groupby(["feature_preset", "model_type"])["mse_demand"]
-                 .min().reset_index())
+    best = (body.groupby(["feature_preset", "model_type"])[metric_col]
+                 .min().reset_index().rename(columns={metric_col: "mse_demand"}))
     matrix = best.pivot(index="feature_preset", columns="model_type",
                         values="mse_demand")
 

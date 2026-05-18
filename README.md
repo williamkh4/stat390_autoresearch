@@ -6,26 +6,38 @@ A small, reproducible research framework for the STAT 390 project charter
 reference baseline, and an **AutoResearch loop** you can call once per
 iteration to score candidate models and track budget/runtime.
 
+> **Iter-2 status (spec v0.2).** The auto loop now defaults to
+> **walk-forward CV** (10 folds, expanding train, 180-day val, 90-day
+> step), reports `mean ± std` per candidate, and promotes the champion
+> only when `mean_challenger + std_challenger < mean_champion − std_champion`
+> (noise-aware). The two-stage **predicted-RRP** pipeline lives in
+> `src/predict_rrp.py` and is the primary H2 surface this iteration.
+> See `program.md` §1, `ABLATION_TABLES.md` for the scope-narrowing
+> rationale, and `TWO_WEEK_PLAN.md` for the build calendar.
+
 ---
 
 ## Design decisions (locked)
 
 These are fixed for the whole project so that every run is comparable.
-Changing any of them invalidates prior leaderboard entries.
+Changing any of them invalidates prior leaderboard entries. The
+**bold** rows are iter-2 additions; iter-1 rows are retained for replay.
 
 | Decision | Value | Where it lives |
 |---|---|---|
 | Target | Daily `demand` (MW-equivalent) | `src/features.py::TARGET_COL` |
 | Validation metric | **Mean Squared Error of demand** | `src/metrics.py::PRIMARY_METRIC_NAME` |
 | Test set | **Final 365 days** of the merged panel, locked | `src/split.py::TEST_DAYS` |
-| Validation set | 180 days immediately before test | `src/split.py::VAL_DAYS` |
+| Validation set (iter-1 holdout) | 180 days immediately before test | `src/split.py::VAL_DAYS` |
 | Train set | All earlier rows | derived |
 | Split style | Strict chronological slice (no shuffling) | `src/split.py::make_splits` |
 | Baseline | Seasonal naive, `y_hat(t) = demand(t - 7)` | `src/baselines.py::SeasonalNaive` |
+| **Validation protocol (iter-2)** | **Walk-forward CV, 10 folds, val=180, step=90, min_train=730 (expanding)** | `src/split.py::make_walk_forward_folds` |
+| **Champion promotion (iter-2)** | **Noise-aware: `mean_chal + std_chal < mean_champ − std_champ`** | `src/autoresearch.py::_noise_aware_promote` |
+| **Two-stage RRP (iter-2)** | **Stage-1 GBM predicts RRP from weather + calendar + RRP lags; stage-2 consumes it via `FeatureConfig.use_predicted_rrp`** | `src/predict_rrp.py` |
+| **Pre-COVID sensitivity (iter-2)** | **One-shot 365-day window ending 2019-10-07, alongside the locked test** | `run_test_evaluation.py --pre-covid-sensitivity` |
 | Scope (iter 1) | Single-stage demand prediction | `src/autoresearch.py::default_candidates` |
-
-The two-stage RRP → demand pipeline from the charter is not required for
-this iteration; it can be added later as another candidate in the loop.
+| Scope (iter 2) | Two-stage predicted-RRP pipeline; walk-forward CV; noise-aware promotion; narrowed search space | `program.md` §3, `ABLATION_TABLES.md` |
 
 ---
 
@@ -132,9 +144,13 @@ Because step 2 dedupes against history, every run automatically does *new*
 work without you re-editing the candidate list.
 
 ```bash
-python run_autoresearch.py                       # default 4 challengers
+python run_autoresearch.py                       # default: walk-forward, 4 challengers
 python run_autoresearch.py --n-challengers 6     # try more this run
 python run_autoresearch.py --seed 42             # reproducible draw
+
+# Iter-2 default validation protocol is walk-forward CV. Fall back to the
+# iter-1 single 180-day hold-out (no noise estimate) with --protocol holdout:
+python run_autoresearch.py --protocol holdout
 
 # Optional: also score every candidate on the locked test set, so val and
 # test metrics show side-by-side in the leaderboard. Champion promotion
@@ -147,6 +163,12 @@ python run_autoresearch.py --evaluate-on-test
 # the trade-off; see ERROR_TAXONOMY.md L5 / FAILURE_ANALYSIS_MEMO.docx.
 python run_autoresearch.py --evaluate-on-test --promote-on=test
 ```
+
+Walk-forward output adds `mse_demand_mean`, `mse_demand_std`,
+`mse_demand_std_indep`, `n_folds`, `uses_predicted_rrp`,
+`uses_observed_rrp` columns to `master_log.csv`. The legacy
+`mse_demand` column is populated with the mean so iter-1 analysis
+scripts keep working unchanged.
 
 When `--evaluate-on-test` is on, `master_log.csv` gains
 `mse_demand_test`, `rmse_demand_test`, `mae_demand_test`, and `n_test`

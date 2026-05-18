@@ -53,9 +53,9 @@ from src.autoresearch import (
 )
 from src.baselines import SeasonalNaive
 from src.data_loader import load_merged
-from src.features import FeatureConfig, build_features
+from src.features import FeatureConfig, PREDICTED_RRP_COL, build_features
 from src.metrics import PRIMARY_METRIC_NAME, score_all
-from src.split import Splits, make_splits
+from src.split import Splits, make_splits, pre_covid_test_window
 
 
 TEST_LOG_NAME = "test_log.csv"
@@ -120,37 +120,52 @@ class TestResult:
     metrics: dict
     runtime_sec: float
     n_features: int
-    n_fit: int          # rows used to fit (train + val)
+    n_fit: int          # rows used to fit (train + val for locked_test;
+                        #                    train only for pre_covid)
     n_test: int         # rows predicted (test)
     error: str | None = None
+    window: str = "locked_test"   # 'locked_test' | 'pre_covid_sensitivity'
 
 
-def _score_on_test(candidate: Candidate, splits: Splits) -> TestResult:
-    """Re-fit `candidate` on train+val, predict on test, return metrics.
+def _score_on_window(candidate: Candidate, fit_df: pd.DataFrame,
+                     predict_df: pd.DataFrame, window_name: str) -> TestResult:
+    """Re-fit `candidate` on `fit_df`, predict on `predict_df`, return metrics.
 
-    Mirrors the logic of `autoresearch.score_candidate` but with the
-    boundary moved one window forward: fit on train+val, predict on
-    the locked test rows.
+    Generalises the locked-test runner to support iter-2's pre-COVID
+    sensitivity readout: same protocol (refit on train+val analogue,
+    predict on a held-out 365-day window), only the window shifts.
+
+    `window_name` is recorded in the returned TestResult for logging.
+    Two-stage (predicted-RRP) candidates have stage-1 fit on `fit_df`
+    only -- same chronological-safety guarantee as the auto loop.
     """
     t0 = time.perf_counter()
     try:
         model = candidate.model_factory()
 
         if isinstance(model, SeasonalNaive):
-            history = pd.concat([splits.train, splits.val]).reset_index(drop=True)
-            model.fit(history["time"], history["demand"].to_numpy())
-            y_pred = model.predict(splits.test["time"])
-            y_true = splits.test["demand"].to_numpy(dtype=float)
+            model.fit(fit_df["time"], fit_df["demand"].to_numpy())
+            y_pred = model.predict(predict_df["time"])
+            y_true = predict_df["demand"].to_numpy(dtype=float)
             metrics = score_all(y_true, y_pred)
             return TestResult(
                 name=candidate.name, metrics=metrics,
                 runtime_sec=time.perf_counter() - t0,
-                n_features=0, n_fit=len(history), n_test=len(splits.test),
+                n_features=0, n_fit=len(fit_df), n_test=len(predict_df),
+                window=window_name,
             )
 
         fc: FeatureConfig = candidate.feature_config
-        full = pd.concat([splits.train, splits.val, splits.test]).reset_index(drop=True)
-        boundary = splits.val["time"].max()   # last day of validation window
+        full = pd.concat([fit_df, predict_df]).reset_index(drop=True)
+        boundary = fit_df["time"].max()
+
+        # Two-stage: stage-1 fit only on the fit window.
+        if getattr(fc, "use_predicted_rrp", False):
+            from src.predict_rrp import materialize_predicted_rrp
+            train_mask_combined = full["time"] <= boundary
+            full[PREDICTED_RRP_COL] = materialize_predicted_rrp(
+                full, train_mask_combined
+            ).values
 
         X, y, feat_names, times = build_features(full, fc)
         fit_mask = times <= boundary
@@ -168,6 +183,7 @@ def _score_on_test(candidate: Candidate, splits: Splits) -> TestResult:
             runtime_sec=time.perf_counter() - t0,
             n_features=len(feat_names),
             n_fit=int(fit_mask.sum()), n_test=int(test_mask.sum()),
+            window=window_name,
         )
     except Exception as exc:
         return TestResult(
@@ -175,7 +191,14 @@ def _score_on_test(candidate: Candidate, splits: Splits) -> TestResult:
             runtime_sec=time.perf_counter() - t0,
             n_features=0, n_fit=0, n_test=0,
             error=f"{type(exc).__name__}: {exc}",
+            window=window_name,
         )
+
+
+def _score_on_test(candidate: Candidate, splits: Splits) -> TestResult:
+    """Backwards-compatible: re-fit on train+val, predict on the locked test."""
+    fit = pd.concat([splits.train, splits.val]).reset_index(drop=True)
+    return _score_on_window(candidate, fit, splits.test, window_name="locked_test")
 
 
 # ----------------------------------------------------------------------------
@@ -189,6 +212,7 @@ TEST_LOG_COLUMNS = [
     "timestamp_utc",
     "champion_name",
     "champion_run_id",
+    "window",                  # 'locked_test' | 'pre_covid_sensitivity'
     "val_mse_demand", "val_rmse_demand", "val_mae_demand",
     "test_mse_demand", "test_rmse_demand", "test_mae_demand",
     "test_minus_val_mse", "test_minus_val_pct",
@@ -266,6 +290,18 @@ def main() -> None:
         action="store_true",
         help="Re-evaluate even if this champion has already been tested.",
     )
+    parser.add_argument(
+        "--pre-covid-sensitivity",
+        action="store_true",
+        help=(
+            "ALSO evaluate on a 365-day pre-COVID window (the 365 days "
+            "immediately preceding the locked test window). Used to "
+            "decompose 'model quality' from 'COVID regime change' in the "
+            "iter-2 final readout. Fit window for this readout is "
+            "everything before the pre-COVID window starts (so val + the "
+            "locked test are NOT used to fit the pre-COVID predictor)."
+        ),
+    )
     args = parser.parse_args()
 
     champion_path = Path(args.champion_path)
@@ -282,14 +318,22 @@ def main() -> None:
     log_path = results_dir / TEST_LOG_NAME
 
     log_df = _read_log(log_path)
-    prior_evals = (log_df["champion_name"] == champion["name"]).sum() \
-        if len(log_df) else 0
-    if prior_evals > 0 and not args.force:
+    # Only the locked-test window has the one-shot guard. The pre-COVID
+    # window is a separate held-out and can be re-evaluated alongside it,
+    # but the locked-test row in the log is still gated.
+    if len(log_df):
+        locked_prior = (
+            (log_df["champion_name"] == champion["name"])
+            & (log_df.get("window", "locked_test").fillna("locked_test") == "locked_test")
+        ).sum()
+    else:
+        locked_prior = 0
+    if locked_prior > 0 and not args.force:
         raise SystemExit(
             f"Champion '{champion['name']}' has already been evaluated on the "
-            f"test set {prior_evals} time(s). Test-set evaluation is supposed "
-            f"to be a one-shot final reading. Pass --force to evaluate again. "
-            f"Log: {log_path}"
+            f"locked test set {locked_prior} time(s). Test-set evaluation is "
+            f"supposed to be a one-shot final reading. Pass --force to "
+            f"evaluate again. Log: {log_path}"
         )
     if len(log_df):
         print(f"[test-eval] test set has been used {len(log_df)} time(s) "
@@ -318,10 +362,10 @@ def main() -> None:
     baselines = baseline_candidates()
     candidates = [champ_cand] + baselines
 
-    # ---- Score every candidate on test ------------------------------------
+    # ---- Score every candidate on the locked test window ------------------
     results: list[TestResult] = []
     for cand in candidates:
-        print(f"[test-eval] scoring on TEST: {cand.name}")
+        print(f"[test-eval] scoring on LOCKED TEST: {cand.name}")
         r = _score_on_test(cand, splits)
         if r.error:
             print(f"  ! error: {r.error}")
@@ -332,6 +376,36 @@ def main() -> None:
                   f"({r.runtime_sec:.2f}s, n_fit={r.n_fit}, n_test={r.n_test})")
         results.append(r)
     print()
+
+    # ---- Optional: pre-COVID sensitivity window ---------------------------
+    pre_covid_results: list[TestResult] = []
+    if args.pre_covid_sensitivity:
+        pre_covid_df = pre_covid_test_window(df)
+        # Fit window for pre-COVID = everything strictly before the pre-COVID
+        # window's first day. This means train+val rows that PRECEDE pre-COVID;
+        # rows that fall inside pre-COVID itself are predict-only.
+        pre_start = pre_covid_df["time"].min()
+        fit_df = df[df["time"] < pre_start].sort_values("time").reset_index(drop=True)
+        print("[test-eval] pre-COVID sensitivity window:")
+        print(f"  {pre_covid_df['time'].min().date()} -> "
+              f"{pre_covid_df['time'].max().date()}  ({len(pre_covid_df)} rows)")
+        print(f"  fit window  : {fit_df['time'].min().date()} -> "
+              f"{fit_df['time'].max().date()}  ({len(fit_df)} rows)")
+        print()
+        for cand in candidates:
+            print(f"[test-eval] scoring on PRE-COVID: {cand.name}")
+            r = _score_on_window(cand, fit_df, pre_covid_df,
+                                 window_name="pre_covid_sensitivity")
+            if r.error:
+                print(f"  ! error: {r.error}")
+            else:
+                print(f"  pre-covid {PRIMARY_METRIC_NAME}="
+                      f"{r.metrics[PRIMARY_METRIC_NAME]:,.2f} "
+                      f"  rmse={r.metrics['rmse_demand']:,.2f}  "
+                      f"mae={r.metrics['mae_demand']:,.2f}  "
+                      f"({r.runtime_sec:.2f}s, n_fit={r.n_fit}, n_test={r.n_test})")
+            pre_covid_results.append(r)
+        print()
 
     # ---- Pretty print val vs test side by side ----------------------------
     champ_test = next((r for r in results if r.name == champ_cand.name), None)
@@ -352,19 +426,50 @@ def main() -> None:
     def _fmt(v):
         return f"{v:>16,.2f}" if v is not None else f"{'—':>16}"
 
-    print("=" * 64)
-    print("Final test-set readout (validation vs test, side by side)")
-    print("=" * 64)
+    # Optional pre-COVID champion result for side-by-side
+    pre_covid_champ = next(
+        (r for r in pre_covid_results if r.name == champ_cand.name and not r.error),
+        None,
+    ) if pre_covid_results else None
+    pre_covid_metrics = (
+        {k: float(pre_covid_champ.metrics[k]) for k in ("mse_demand", "rmse_demand", "mae_demand")}
+        if pre_covid_champ else {}
+    )
+
+    print("=" * 80)
+    print("Final test-set readout")
+    print("=" * 80)
     print(f"  champion : {champ_cand.name}")
-    print(f"  {'metric':<12} {'validation':>16} {'test':>16} "
-          f"{'test − val':>16}")
+    header_cols = ["metric", "validation", "locked test"]
+    if pre_covid_champ:
+        header_cols += ["pre-COVID test"]
+    header_cols += ["test − val"]
+    fmt_str = "  " + "  ".join(f"{c:>16}" for c in header_cols)
+    print(fmt_str)
     for key in ("mse_demand", "rmse_demand", "mae_demand"):
         v_val = val_metrics[key]
         v_test = test_metrics[key]
         diff = (v_test - v_val) if (v_val is not None and v_test is not None) else None
-        print(f"  {key:<12} {_fmt(v_val)} {_fmt(v_test)} {_fmt(diff)}")
+        cells = [_fmt(v_val), _fmt(v_test)]
+        if pre_covid_champ:
+            cells.append(_fmt(pre_covid_metrics.get(key)))
+        cells.append(_fmt(diff))
+        line = f"  {key:>16}  " + "  ".join(f"{c}" for c in cells)
+        print(line)
     if delta_pct is not None:
         print(f"  test MSE is {delta_pct:+.1f}% relative to validation MSE")
+    if pre_covid_champ and pre_covid_metrics.get("mse_demand") is not None:
+        pre_mse = pre_covid_metrics["mse_demand"]
+        if val_mse:
+            pre_delta_pct = 100 * (pre_mse - val_mse) / val_mse
+            print(f"  pre-COVID MSE is {pre_delta_pct:+.1f}% relative to val MSE "
+                  f"(disentangles model quality from COVID-era regime shift)")
+        if test_mse and pre_mse:
+            covid_share = 100 * (test_mse - pre_mse) / (test_mse - (val_mse or 0))
+            if test_mse != (val_mse or 0):
+                print(f"  ~{covid_share:.0f}% of the val->test gap sits beyond the "
+                      f"pre-COVID window (attributable to regime change rather "
+                      f"than model quality)")
     print()
 
     print("Reference baselines on TEST (refit on train+val):")
@@ -423,6 +528,22 @@ def main() -> None:
             "held-out estimator."
         ),
     }
+    if pre_covid_champ:
+        report["champion_pre_covid"] = pre_covid_metrics
+        report["pre_covid_results"] = [
+            {
+                "name": r.name,
+                "metrics": r.metrics,
+                "runtime_sec": r.runtime_sec,
+                "n_features": r.n_features,
+                "n_fit": r.n_fit,
+                "n_test": r.n_test,
+                "error": r.error,
+                "window": r.window,
+            }
+            for r in pre_covid_results
+        ]
+
     out_json = results_dir / f"{champion.get('run_id', 'unknown')}__{timestamp}.json"
     with open(out_json, "w") as f:
         json.dump(report, f, indent=2, default=str)
@@ -432,6 +553,7 @@ def main() -> None:
         "timestamp_utc": timestamp,
         "champion_name": champion["name"],
         "champion_run_id": champion.get("run_id"),
+        "window": "locked_test",
         "val_mse_demand": val_metrics["mse_demand"],
         "val_rmse_demand": val_metrics["rmse_demand"],
         "val_mae_demand": val_metrics["mae_demand"],
@@ -443,7 +565,30 @@ def main() -> None:
         "n_fit": champ_test.n_fit,
         "n_test": champ_test.n_test,
     })
-    print(f"[test-eval] appended row to {log_path}")
+    print(f"[test-eval] appended locked_test row to {log_path}")
+
+    if pre_covid_champ:
+        pre_delta = (pre_covid_metrics["mse_demand"] - val_mse
+                     if val_mse is not None else None)
+        pre_delta_pct = (100 * pre_delta / val_mse
+                         if pre_delta is not None and val_mse else None)
+        _append_log(log_path, {
+            "timestamp_utc": timestamp,
+            "champion_name": champion["name"],
+            "champion_run_id": champion.get("run_id"),
+            "window": "pre_covid_sensitivity",
+            "val_mse_demand": val_metrics["mse_demand"],
+            "val_rmse_demand": val_metrics["rmse_demand"],
+            "val_mae_demand": val_metrics["mae_demand"],
+            "test_mse_demand": pre_covid_metrics["mse_demand"],
+            "test_rmse_demand": pre_covid_metrics["rmse_demand"],
+            "test_mae_demand": pre_covid_metrics["mae_demand"],
+            "test_minus_val_mse": pre_delta,
+            "test_minus_val_pct": pre_delta_pct,
+            "n_fit": pre_covid_champ.n_fit,
+            "n_test": pre_covid_champ.n_test,
+        })
+        print(f"[test-eval] appended pre_covid_sensitivity row to {log_path}")
 
 
 if __name__ == "__main__":
